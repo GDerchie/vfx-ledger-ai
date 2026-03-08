@@ -1194,6 +1194,7 @@ COL_MAP = {
     'type':'shot_type','shot_type':'shot_type',
     'omit':'omit',
     'overall shot history  showrunner/director/ep/pd notes \nfor internal purpose only':'history_notes',
+    'overall shot history  showrunner/director/ep/pd notes \nfor internal purpose only ':'history_notes',
     'history':'history_notes','history_notes':'history_notes','shot history':'history_notes',
     'director notes':'history_notes',
     'shot(est)':'shot_est','shot est':'shot_est','shot_est':'shot_est','shots':'shot_est',
