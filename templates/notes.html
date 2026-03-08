@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}VFX Notes{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3">
+  <h5 class="mb-0 text-warning fw-bold"><i class="bi bi-journal-text me-2"></i>VFX NOTES</h5>
+  <button class="btn-vfx btn-vfx-blue ms-auto" onclick="addNote()">
+    <i class="bi bi-plus me-1"></i>Add Note
+  </button>
+</div>
+
+<div class="vfx-panel">
+  <div class="vfx-panel-header">
+    <span>ALL NOTES</span>
+    <span class="text-muted" style="font-size:10px;">Click cells to edit • check Resolved to mark done</span>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div id="notes-table" style="min-height:400px;"></div>
+  </div>
+</div>
+
+<div class="vfx-toast" id="toast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let notesTable = null;
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none',2000);
+}
+
+function buildTable(data){
+  if(notesTable){ notesTable.destroy(); notesTable=null; }
+  notesTable = new Tabulator('#notes-table',{
+    data, layout:'fitDataFill', height:'500px',
+    rowFormatter: row => {
+      if(row.getData().resolved)
+        row.getElement().style.opacity='0.5';
+    },
+    columns:[
+      { title:'#', field:'item_num', width:55, hozAlign:'center' },
+      { title:'Author', field:'author', width:100, editor:'input', cellEdited:save },
+      { title:'VFX Note', field:'note_text', width:500, editor:'textarea', formatter:'textarea', cellEdited:save },
+      { title:'Date', field:'note_date', width:110, editor:'input', cellEdited:save },
+      { title:'Resolved', field:'resolved', width:80, hozAlign:'center',
+        formatter:'tickCross', editor:'tickCross',
+        cellEdited: cell=>{
+          save(cell);
+          const row=cell.getRow();
+          if(cell.getValue()) row.getElement().style.opacity='0.5';
+          else row.getElement().style.opacity='1';
+        }},
+      { title:'', width:40, hozAlign:'center', headerSort:false,
+        formatter:()=>'<i class="bi bi-trash" style="color:#e05252;cursor:pointer;"></i>',
+        cellClick:(e,cell)=>del(cell.getRow()) }
+    ]
+  });
+}
+
+async function save(cell){
+  const row = cell.getRow().getData();
+  if(!row.id) return;
+  await fetch(`/api/notes/${row.id}`,{
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[cell.getField()]: cell.getValue()})
+  });
+  toast('Saved');
+}
+
+async function addNote(){
+  const res = await fetch('/api/notes',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({note_text:''})
+  });
+  const data = await res.json();
+  const rows = notesTable.getData();
+  notesTable.addRow({
+    id:data.id, item_num:rows.length+1,
+    author:'', note_text:'', note_date:new Date().toISOString().slice(0,10), resolved:false
+  });
+  toast('Note added');
+}
+
+async function del(row){
+  if(!confirm('Delete this note?')) return;
+  await fetch(`/api/notes/${row.getData().id}`,{method:'DELETE'});
+  row.delete();
+  toast('Deleted');
+}
+
+async function init(){
+  const res = await fetch('/api/notes');
+  buildTable(await res.json());
+}
+init();
+</script>
+{% endblock %}

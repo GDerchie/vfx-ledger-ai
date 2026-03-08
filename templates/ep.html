@@ -1,0 +1,616 @@
+{% extends "base.html" %}
+{% block title %}EP{{ ep_num }} – VFX Budget System{% endblock %}
+
+{% block content %}
+
+<!-- EP Header -->
+<div class="d-flex align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h5 class="mb-0 text-warning fw-bold">EPISODE {{ ep_num }} — SHOT LIST</h5>
+    <div class="text-muted" style="font-size:11px;">
+      Script V: <span id="lbl-script-v" class="text-light">—</span> &nbsp;|&nbsp;
+      Edit V: <span id="lbl-edit-v" class="text-light">—</span>
+    </div>
+  </div>
+
+  <!-- EP meta quick-edit -->
+  <div class="d-flex align-items-center gap-2 ms-3">
+    <label class="text-muted" style="font-size:11px;">Script V</label>
+    <input id="meta-script-v" class="vfx-input" style="width:80px;" placeholder="e.g. v3">
+    <label class="text-muted" style="font-size:11px;">Edit V</label>
+    <input id="meta-edit-v" class="vfx-input" style="width:80px;" placeholder="e.g. 5">
+    <button class="btn-vfx btn-vfx-gold" onclick="saveEpMeta()">Save</button>
+  </div>
+
+  <div class="ms-auto d-flex gap-2 flex-wrap align-items-center">
+    <button type="button" class="btn btn-sm btn-outline-info" onclick="addShot()">
+      <i class="bi bi-plus-circle me-1"></i>Add Shot
+    </button>
+    <button type="button" class="btn btn-sm btn-warning text-dark fw-bold"
+            data-bs-toggle="modal" data-bs-target="#importModal">
+      <i class="bi bi-file-earmark-excel me-1"></i>Import Excel
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="snapshotHistory()">
+      <i class="bi bi-camera me-1"></i>Snapshot to History
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+            onclick="shotsTable && shotsTable.download('csv','ep{{ ep_num }}_shots.csv')">
+      <i class="bi bi-download me-1"></i>Export CSV
+    </button>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal fade" id="importModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="background:#14151f;border:1px solid #2e3050;color:#dce1f0;">
+      <div class="modal-header" style="border-bottom:1px solid #2e3050;background:#1f2035;">
+        <h6 class="modal-title text-warning fw-bold">
+          <i class="bi bi-file-earmark-excel me-2"></i>IMPORT EXCEL — EP{{ ep_num }}
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                onclick="resetImport()"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Step 1 – File + options -->
+        <div class="row g-3 align-items-end mb-3">
+          <div class="col-auto">
+            <label class="section-label">Excel File (.xlsx)</label>
+            <input type="file" id="imp-file" accept=".xlsx,.xls"
+                   class="form-control form-control-sm"
+                   style="background:#1a1b28;border-color:#2e3050;color:#dce1f0;width:320px;"
+                   onchange="onFileChange()">
+          </div>
+          <div class="col-auto" id="sheet-picker-wrap" style="display:none;">
+            <label class="section-label">Sheet</label>
+            <select id="imp-sheet" class="vfx-input" style="width:180px;" onchange="runPreview()"></select>
+          </div>
+          <div class="col-auto">
+            <label class="section-label">Import Mode</label>
+            <select id="imp-mode" class="vfx-input" style="width:200px;">
+              <option value="append">Append — keep existing rows</option>
+              <option value="replace">Replace — delete existing rows first</option>
+            </select>
+          </div>
+          <div class="col-auto">
+            <button class="btn-vfx btn-vfx-blue" onclick="runPreview()">
+              <i class="bi bi-eye me-1"></i>Preview
+            </button>
+          </div>
+        </div>
+        <div id="imp-status" class="text-muted mb-2" style="font-size:11px;min-height:18px;"></div>
+
+        <!-- Preview table -->
+        <div id="imp-preview-wrap" style="display:none;">
+          <div class="d-flex align-items-center mb-2 gap-3">
+            <span class="section-label mb-0">PREVIEW</span>
+            <span id="imp-count-badge"
+                  style="font-size:11px;background:#1a3020;color:#52c46a;
+                         border:1px solid #52c46a;border-radius:3px;padding:2px 8px;"></span>
+            <span class="text-muted" style="font-size:10px;">Review rows before confirming</span>
+          </div>
+          <div style="overflow-x:auto;max-height:360px;border:1px solid #2e3050;border-radius:4px;">
+            <table class="dist-table" id="imp-table" style="min-width:900px;">
+              <thead id="imp-thead"></thead>
+              <tbody id="imp-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid #2e3050;background:#1f2035;">
+        <span id="imp-footer-msg" class="text-muted me-auto" style="font-size:11px;"></span>
+        <button class="btn-vfx" data-bs-dismiss="modal" onclick="resetImport()">Cancel</button>
+        <button class="btn-vfx btn-vfx-gold" id="btn-commit" style="display:none;"
+                onclick="commitImport()">
+          <i class="bi bi-check2-circle me-1"></i>Confirm Import
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Budget Summary Cards -->
+<div class="row g-2 mb-3" id="budget-cards">
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">Active Shots</div>
+      <div class="value" id="sc-active">—</div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">Edit Count</div>
+      <div class="value" id="sc-edit">—</div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">EST Budget</div>
+      <div class="value" id="sc-est">—</div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">EFC</div>
+      <div class="value" id="sc-efc">—</div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">Variance (EFC–EST)</div>
+      <div class="value" id="sc-var">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Shot List Table -->
+<div class="vfx-panel">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-table me-2"></i>SHOT LIST — EP{{ ep_num }}</span>
+    <span class="text-muted" style="font-size:10px;">Click any cell to edit • OMIT = dim row</span>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div id="shots-table" style="min-height:400px;"></div>
+  </div>
+</div>
+
+<!-- Budget History / Legacy -->
+<div class="vfx-panel">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-clock-history me-2"></i>BUDGET HISTORY / LEGACY — EP{{ ep_num }}</span>
+    <span class="text-muted" style="font-size:10px;">Snapshots of budget state over time</span>
+  </div>
+  <div class="vfx-panel-body p-0" style="overflow-x:auto;">
+    <table class="hist-table" id="hist-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Version Label</th>
+          <th>Script V</th>
+          <th>Edit V</th>
+          <th>Est S#</th>
+          <th>Edit #</th>
+          <th>EST Budget</th>
+          <th>EFC Budget</th>
+          <th>Variance</th>
+          <th>Status</th>
+          <th>Est Reduction</th>
+          <th>Reduction Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="hist-body">
+        <tr><td colspan="13" class="text-center text-muted py-2">No history yet — use Snapshot button</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="vfx-toast" id="toast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const EP = {{ ep_num }};
+
+const STATUS_OPTIONS = [
+  '','? Vendor Rebid Pending','? Editorial-Driven','✓ On Budget','⚠ Over Budget','🔒 Locked','↓ Reducing'
+];
+const TYPE_OPTIONS   = ['','CG','Comp','Roto','Paint','Grade','Crowd','Extension','Creature','FX','Title'];
+const LOC_OPTIONS    = [];   // will populate from existing data
+
+let shotsTable = null;
+let shotsData  = [];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt$(v){ return v==null||v===''?'':
+  '$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtN(v){ return v==null?'':Number(v).toLocaleString(); }
+function varClass(v){
+  if(v>0)  return 'cell-neg';
+  if(v<0)  return 'cell-pos';
+  return 'cell-zero';
+}
+function toast(msg, err=false){
+  const t=document.getElementById('toast');
+  t.style.borderColor = err ? '#e05252' : '#52c46a';
+  t.style.color       = err ? '#e05252' : '#52c46a';
+  t.textContent=msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none',2200);
+}
+
+// ── Budget summary cards ──────────────────────────────────────────────────────
+function updateCards(data){
+  const active   = data.filter(r=>!r.omit);
+  const shots    = active.reduce((a,r)=>a+(r.shot_est||0),0);  // sum est shots for count
+  const editCnt  = active.reduce((a,r)=>a+(r.edit_count||0),0);
+  const est      = active.reduce((a,r)=>a+(r.cost_est||0),0);
+  const efc      = active.reduce((a,r)=>a+(r.efc||0),0);
+  const variance = efc - est;
+
+  document.getElementById('sc-active').textContent = data.filter(r=>!r.omit).length;
+  document.getElementById('sc-edit').textContent   = fmtN(editCnt);
+  document.getElementById('sc-est').textContent    = fmt$(est);
+  document.getElementById('sc-efc').textContent    = fmt$(efc);
+  const scv = document.getElementById('sc-var');
+  scv.textContent = (variance>0?'+':'')+fmt$(variance);
+  scv.className   = 'value '+varClass(variance);
+}
+
+// ── EP meta ───────────────────────────────────────────────────────────────────
+async function loadEpMeta(){
+  const res = await fetch(`/api/ep_meta/${EP}`);
+  const m   = await res.json();
+  document.getElementById('lbl-script-v').textContent = m.script_v || '—';
+  document.getElementById('lbl-edit-v').textContent   = m.edit_v   || '—';
+  document.getElementById('meta-script-v').value      = m.script_v || '';
+  document.getElementById('meta-edit-v').value        = m.edit_v   || '';
+}
+
+async function saveEpMeta(){
+  const sv = document.getElementById('meta-script-v').value.trim();
+  const ev = document.getElementById('meta-edit-v').value.trim();
+  await fetch(`/api/ep_meta/${EP}`,{
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({script_v:sv, edit_v:ev})
+  });
+  document.getElementById('lbl-script-v').textContent = sv||'—';
+  document.getElementById('lbl-edit-v').textContent   = ev||'—';
+  toast('EP meta saved');
+}
+
+// ── Shots table ───────────────────────────────────────────────────────────────
+function buildShotsTable(data){
+  if(shotsTable){ shotsTable.destroy(); shotsTable=null; }
+
+  shotsTable = new Tabulator('#shots-table', {
+    data: data,
+    layout: 'fitDataFill',
+    height: '500px',
+    rowFormatter: row => {
+      if(row.getData().omit) row.getElement().classList.add('row-omit');
+      else row.getElement().classList.remove('row-omit');
+    },
+    columnDefaults: { headerSort: true, resizable: true },
+    columns: [
+      // ── identifiers ───────────────────────────────────────────────────────
+      { title:'#',     field:'shot_num',   width:55,  frozen:true, hozAlign:'center',
+        editor:'number', cellEdited:saveCell },
+      { title:'SC',    field:'scene_code', width:70,  frozen:true,
+        editor:'input',  cellEdited:saveCell },
+      { title:'S_CODE',field:'s_code',     width:90,
+        editor:'input',  cellEdited:saveCell },
+      { title:'LOC',   field:'location',   width:110,
+        editor:'input',  cellEdited:saveCell },
+      { title:'EXT/INT', field:'ext_int',  width:75,
+        editor:'list', editorParams:{values:['','EXT','INT','EXT/INT']}, cellEdited:saveCell },
+      { title:'PG',    field:'pg',         width:55,
+        editor:'input',  cellEdited:saveCell },
+      { title:'IMG',   field:'img',        width:55,
+        editor:'input',  cellEdited:saveCell },
+      { title:'ASSET', field:'asset',      width:130,
+        editor:'input', formatter:'textarea', cellEdited:saveCell },
+
+      // ── descriptions ──────────────────────────────────────────────────────
+      { title:'SCRIPT DESCRIPTION', field:'script_desc', width:200,
+        editor:'textarea', formatter:'textarea', cellEdited:saveCell },
+      { title:'VFX DESCRIPTION',    field:'vfx_desc',    width:200,
+        editor:'textarea', formatter:'textarea', cellEdited:saveCell },
+
+      // ── flags ─────────────────────────────────────────────────────────────
+      { title:'TYPE', field:'shot_type', width:90,
+        editor:'list', editorParams:{values: TYPE_OPTIONS}, cellEdited:saveCell },
+      { title:'OMIT', field:'omit', width:55, hozAlign:'center',
+        formatter:'tickCross', formatterParams:{allowEmpty:true},
+        editor:'tickCross',
+        cellEdited: cell => {
+          saveCell(cell);
+          const row = cell.getRow();
+          if(cell.getValue()) row.getElement().classList.add('row-omit');
+          else row.getElement().classList.remove('row-omit');
+          updateCards(shotsTable.getData());
+        }},
+
+      // ── internal notes ────────────────────────────────────────────────────
+      { title:'SHOT HISTORY / DIRECTOR NOTES (Internal)', field:'history_notes', width:240,
+        editor:'textarea', formatter:'textarea', cellEdited:saveCell },
+
+      // ── budget ────────────────────────────────────────────────────────────
+      { title:'SHOT EST', field:'shot_est', width:80, hozAlign:'right',
+        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+      { title:'COST EST', field:'cost_est', width:100, hozAlign:'right',
+        formatter: c=> fmt$(c.getValue()),
+        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+      { title:'BUDGET EST', field:'budget_est', width:105, hozAlign:'right',
+        formatter: c=> fmt$(c.getValue()),
+        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+      { title:'AWARD (Vendor)', field:'award_vendor', width:130,
+        editor:'input', cellEdited:saveCell },
+      { title:'EDIT #', field:'edit_count', width:70, hozAlign:'right',
+        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+      { title:'BUDGET (Award Cost)', field:'budget_award_cost', width:130, hozAlign:'right',
+        formatter: c=> fmt$(c.getValue()),
+        editor:'number', cellEdited:saveCell },
+      { title:'EFC', field:'efc', width:100, hozAlign:'right',
+        formatter: c=> fmt$(c.getValue()),
+        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+      { title:'VARIANCE', field:'_variance', width:105, hozAlign:'right',
+        formatter: cell => {
+          const d = cell.getRow().getData();
+          const v = (d.efc||0) - (d.cost_est||0);
+          const el = cell.getElement();
+          el.classList.remove('cell-neg','cell-pos','cell-zero');
+          if(v>0) el.classList.add('cell-neg');
+          else if(v<0) el.classList.add('cell-pos');
+          else el.classList.add('cell-zero');
+          return v===0?'':((v>0?'+':'')+fmt$(v));
+        },
+        headerSort: false },
+      { title:'NOTES', field:'notes', width:200,
+        editor:'textarea', formatter:'textarea', cellEdited:saveCell },
+      // ── delete ────────────────────────────────────────────────────────────
+      { title:'', width:40, hozAlign:'center', headerSort:false,
+        formatter:()=>'<i class="bi bi-trash" style="color:#e05252;cursor:pointer;"></i>',
+        cellClick:(e,cell)=>deleteShot(cell.getRow()) }
+    ]
+  });
+
+  updateCards(data);
+}
+
+async function saveCell(cell){
+  const row  = cell.getRow().getData();
+  if(!row.id) return;
+  const field = cell.getField();
+  await fetch(`/api/shots/${row.id}`,{
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[field]: cell.getValue()})
+  });
+  toast('Saved');
+}
+
+async function addShot(){
+  const res = await fetch('/api/shots',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ep: EP, shot_num: (shotsTable.getData().length+1),
+      shot_est:1, cost_est:0, budget_est:0, efc:0, edit_count:0})
+  });
+  const data = await res.json();
+  shotsTable.addRow({
+    id: data.id, ep: EP, shot_num: shotsTable.getData().length+1,
+    scene_code:'', s_code:'', location:'', ext_int:'', pg:'', img:'',
+    asset:'', script_desc:'', vfx_desc:'', shot_type:'', omit:false,
+    history_notes:'', shot_est:1, cost_est:0, budget_est:0, award_vendor:'',
+    edit_count:0, budget_award_cost:0, efc:0, notes:''
+  });
+  toast('Shot added');
+}
+
+async function deleteShot(row){
+  if(!confirm('Delete this shot row?')) return;
+  await fetch(`/api/shots/${row.getData().id}`,{method:'DELETE'});
+  row.delete();
+  updateCards(shotsTable.getData());
+  toast('Deleted');
+}
+
+// ── History / Legacy ──────────────────────────────────────────────────────────
+async function loadHistory(){
+  const res = await fetch(`/api/history/${EP}`);
+  const data = await res.json();
+  renderHistory(data);
+}
+
+function renderHistory(data){
+  const tbody = document.getElementById('hist-body');
+  if(!data.length){
+    tbody.innerHTML='<tr><td colspan="13" class="text-center text-muted py-2">No history yet — use Snapshot button</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(h=>{
+    const v = h.variance_val||0;
+    return `<tr>
+      <td>${h.record_date||''}</td>
+      <td><strong>${h.version_label||''}</strong></td>
+      <td>${h.script_v||''}</td>
+      <td>${h.edit_v||''}</td>
+      <td>${fmtN(h.est_shots)}</td>
+      <td>${fmtN(h.edit_shots)}</td>
+      <td>${fmt$(h.est_budget)}</td>
+      <td>${fmt$(h.efc_budget)}</td>
+      <td class="${varClass(v)}">${(v>0?'+':'')+fmt$(v)}</td>
+      <td><small>${h.status||''}</small></td>
+      <td>${fmt$(h.est_reduction)}</td>
+      <td><small>${h.reduction_notes||''}</small></td>
+      <td><i class="bi bi-trash text-danger" style="cursor:pointer"
+             onclick="deleteHistory(${h.id}, this.closest('tr'))"></i></td>
+    </tr>`;
+  }).join('');
+}
+
+async function snapshotHistory(){
+  const label = prompt('Version label for this snapshot (e.g. "v3 - Post PD Meeting"):','');
+  if(label===null) return;
+
+  // read current aggregated values from stat cards
+  const active   = shotsTable.getData().filter(r=>!r.omit);
+  const est      = active.reduce((a,r)=>a+(r.cost_est||0),0);
+  const efc      = active.reduce((a,r)=>a+(r.efc||0),0);
+  const editCnt  = active.reduce((a,r)=>a+(r.edit_count||0),0);
+  const shots    = active.length;
+  const sv       = document.getElementById('meta-script-v').value.trim();
+  const ev       = document.getElementById('meta-edit-v').value.trim();
+
+  const payload = {
+    version_label: label,
+    script_v: sv, edit_v: ev,
+    est_shots: shots, edit_shots: editCnt,
+    est_budget: est, efc_budget: efc,
+    variance_val: efc - est,
+    record_date: new Date().toISOString().slice(0,10)
+  };
+
+  const res = await fetch(`/api/history/${EP}`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if(res.ok){ toast('Snapshot saved to history'); await loadHistory(); }
+  else toast('Error saving snapshot', true);
+}
+
+async function deleteHistory(id, row){
+  if(!confirm('Remove this history entry?')) return;
+  await fetch(`/api/history/${id}`,{method:'DELETE'});
+  row.remove();
+  toast('Removed');
+}
+
+// ── Import ────────────────────────────────────────────────────────────────────
+let importedRows = [];
+
+const PREVIEW_COLS = [
+  ['shot_num','#'],['scene_code','SC'],['s_code','S_CODE'],['location','LOC'],
+  ['ext_int','EXT/INT'],['asset','ASSET'],['script_desc','SCRIPT DESC'],
+  ['vfx_desc','VFX DESC'],['shot_type','TYPE'],['omit','OMIT'],
+  ['shot_est','SHOT EST'],['cost_est','COST EST'],['budget_est','BUDGET EST'],
+  ['award_vendor','VENDOR'],['edit_count','EDIT #'],['efc','EFC'],['notes','NOTES']
+];
+
+function resetImport(){
+  document.getElementById('imp-file').value = '';
+  document.getElementById('imp-status').textContent = '';
+  document.getElementById('imp-preview-wrap').style.display = 'none';
+  document.getElementById('btn-commit').style.display = 'none';
+  document.getElementById('sheet-picker-wrap').style.display = 'none';
+  document.getElementById('imp-footer-msg').textContent = '';
+  importedRows = [];
+}
+
+async function onFileChange(){
+  const f = document.getElementById('imp-file').files[0];
+  if(!f) return;
+  document.getElementById('imp-status').textContent = 'Reading file…';
+  document.getElementById('imp-preview-wrap').style.display = 'none';
+  document.getElementById('btn-commit').style.display = 'none';
+  // quick peek to get sheet names
+  await runPreview();
+}
+
+async function runPreview(){
+  const fileInput = document.getElementById('imp-file');
+  if(!fileInput.files.length){ return; }
+  const f = fileInput.files[0];
+  const sheet = document.getElementById('imp-sheet').value || '';
+
+  document.getElementById('imp-status').textContent = 'Parsing…';
+  document.getElementById('imp-preview-wrap').style.display = 'none';
+  document.getElementById('btn-commit').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', f);
+  if(sheet) fd.append('sheet', sheet);
+
+  let res, data;
+  try {
+    res  = await fetch(`/api/import/preview/${EP}`, {method:'POST', body: fd});
+    data = await res.json();
+  } catch(e) {
+    document.getElementById('imp-status').textContent = 'Error: ' + e;
+    return;
+  }
+
+  if(data.error){
+    document.getElementById('imp-status').textContent = 'Error: ' + data.error;
+    return;
+  }
+
+  // Populate sheet selector
+  if(data.sheets && data.sheets.length){
+    const sel = document.getElementById('imp-sheet');
+    const current = sel.value;
+    sel.innerHTML = data.sheets.map(s =>
+      `<option value="${s}" ${s===current?'selected':''}>${s}</option>`
+    ).join('');
+    document.getElementById('sheet-picker-wrap').style.display = '';
+  }
+
+  importedRows = data.rows || [];
+  const count  = importedRows.length;
+
+  document.getElementById('imp-status').textContent =
+    count ? '' : 'No importable rows found — check that the sheet has the expected column headers.';
+  document.getElementById('imp-count-badge').textContent = count + ' rows ready to import';
+
+  if(!count) return;
+
+  // Build preview table
+  const thead = document.getElementById('imp-thead');
+  const tbody = document.getElementById('imp-tbody');
+  thead.innerHTML = '<tr>' + PREVIEW_COLS.map(([,label])=>`<th>${label}</th>`).join('') + '</tr>';
+  tbody.innerHTML = importedRows.slice(0, 100).map(row => {
+    return '<tr>' + PREVIEW_COLS.map(([field])=>{
+      let v = row[field] ?? '';
+      if(field === 'cost_est'||field === 'budget_est'||field === 'efc'){
+        v = v ? '$'+Number(v).toLocaleString() : '';
+      }
+      if(field === 'omit') v = v ? '✓' : '';
+      return `<td style="white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${v}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  if(importedRows.length > 100){
+    tbody.innerHTML += `<tr><td colspan="${PREVIEW_COLS.length}" class="text-center text-muted">`+
+      `… and ${importedRows.length-100} more rows (all will be imported)</td></tr>`;
+  }
+
+  document.getElementById('imp-preview-wrap').style.display = '';
+  document.getElementById('btn-commit').style.display = '';
+  document.getElementById('imp-footer-msg').textContent =
+    `${count} rows from sheet "${document.getElementById('imp-sheet').value||'auto-detected'}"`;
+}
+
+async function commitImport(){
+  if(!importedRows.length) return;
+  const mode = document.getElementById('imp-mode').value;
+  const modeLabel = mode === 'replace' ? 'DELETE all existing shots then import' : 'append';
+  if(!confirm(`${modeLabel} ${importedRows.length} rows into EP${EP}?`)) return;
+
+  document.getElementById('btn-commit').disabled = true;
+  document.getElementById('btn-commit').textContent = 'Importing…';
+
+  const res = await fetch(`/api/import/commit/${EP}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({rows: importedRows, mode})
+  });
+  const data = await res.json();
+
+  if(data.error){
+    toast('Import error: ' + data.error, true);
+    document.getElementById('btn-commit').disabled = false;
+    document.getElementById('btn-commit').innerHTML = '<i class="bi bi-check2-circle me-1"></i>Confirm Import';
+    return;
+  }
+
+  // Close modal and reload shots
+  bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+  resetImport();
+  toast(`Imported ${data.inserted} shots (${mode})`);
+
+  // Reload shots table
+  const r2 = await fetch(`/api/shots/${EP}`);
+  shotsData = await r2.json();
+  buildShotsTable(shotsData);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init(){
+  await loadEpMeta();
+  const res = await fetch(`/api/shots/${EP}`);
+  shotsData = await res.json();
+  buildShotsTable(shotsData);
+  await loadHistory();
+}
+init();
+</script>
+{% endblock %}

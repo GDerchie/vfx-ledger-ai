@@ -1,0 +1,210 @@
+/* ============================================================
+   VFX Budget System - Dark Theme
+   ============================================================ */
+
+:root {
+  --bg-deep:    #0d0e18;
+  --bg-panel:   #14151f;
+  --bg-table:   #1a1b28;
+  --bg-header:  #1f2035;
+  --bg-hover:   #252639;
+  --accent:     #f0b429;
+  --accent2:    #4e9af1;
+  --red:        #e05252;
+  --green:      #52c46a;
+  --border:     #2e3050;
+  --text:       #dce1f0;
+  --text-muted: #7880a0;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+}
+
+/* ---- Navbar ---- */
+.vfx-nav {
+  background: #0a0b14 !important;
+  border-bottom: 2px solid var(--accent);
+}
+.vfx-nav .navbar-brand { letter-spacing: 1px; font-size: 15px; }
+.vfx-nav .nav-link { color: #a0a8c0 !important; font-size: 12px; letter-spacing: .5px; }
+.vfx-nav .nav-link:hover,
+.vfx-nav .nav-link.active { color: var(--accent) !important; }
+
+/* ---- Cards / Panels ---- */
+.vfx-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 18px;
+}
+.vfx-panel-header {
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.vfx-panel-body { padding: 10px; }
+
+/* ---- Summary cards ---- */
+.stat-card {
+  background: var(--bg-header);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  text-align: center;
+}
+.stat-card .label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.stat-card .value { font-size: 20px; font-weight: 700; color: var(--text); }
+.stat-card .value.pos { color: var(--green); }
+.stat-card .value.neg { color: var(--red); }
+
+/* ---- Tabulator overrides ---- */
+.tabulator {
+  background: var(--bg-table) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 0 4px 4px;
+  font-size: 12px;
+}
+.tabulator .tabulator-header { background: var(--bg-header) !important; }
+.tabulator .tabulator-header .tabulator-col {
+  background: var(--bg-header) !important;
+  border-right: 1px solid var(--border) !important;
+  color: #a8b0d0 !important;
+  font-size: 11px;
+  letter-spacing: .5px;
+}
+.tabulator .tabulator-header .tabulator-col-title { white-space: normal; line-height: 1.2; }
+.tabulator-row { border-bottom: 1px solid #1e2030 !important; }
+.tabulator-row.tabulator-row-even { background: #161724 !important; }
+.tabulator-row.tabulator-row-odd  { background: var(--bg-table) !important; }
+.tabulator-row:hover { background: var(--bg-hover) !important; }
+.tabulator-row.tabulator-selected { background: #1e3050 !important; }
+.tabulator-cell { border-right: 1px solid #1c1e30 !important; color: var(--text) !important; }
+.tabulator-cell.tabulator-editing { background: #242640 !important; }
+
+/* omit row dim */
+.tabulator-row.row-omit { opacity: 0.45; }
+
+/* variance colouring */
+.cell-neg { color: var(--red) !important; font-weight: 600; }
+.cell-pos { color: var(--green) !important; font-weight: 600; }
+.cell-zero { color: var(--text-muted) !important; }
+
+/* ---- Buttons ---- */
+.btn-vfx {
+  background: var(--bg-header);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.btn-vfx:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+.btn-vfx-gold { border-color: var(--accent); color: var(--accent); }
+.btn-vfx-gold:hover { background: var(--accent); color: #000; }
+.btn-vfx-blue { border-color: var(--accent2); color: var(--accent2); }
+.btn-vfx-blue:hover { background: var(--accent2); color: #fff; }
+.btn-vfx-danger { border-color: var(--red); color: var(--red); }
+.btn-vfx-danger:hover { background: var(--red); color: #fff; }
+
+/* ---- EFC Summary table (distribution) ---- */
+.dist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dist-table th {
+  background: var(--bg-header);
+  color: #a0a8c0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.dist-table td {
+  padding: 6px 10px;
+  border: 1px solid #1c1e2e;
+  color: var(--text);
+  vertical-align: middle;
+}
+.dist-table tr:nth-child(even) { background: #161724; }
+.dist-table tr:hover { background: var(--bg-hover); }
+.dist-table .ep-num { color: var(--accent); font-weight: 700; font-size: 13px; }
+.dist-table [contenteditable="true"]:focus {
+  outline: 1px solid var(--accent2);
+  background: #242640;
+}
+.dist-table .totals-row { background: var(--bg-header) !important; font-weight: 700; }
+.dist-table .totals-row td { color: var(--accent) !important; border-top: 2px solid var(--accent) !important; }
+
+/* ---- Editable cell indicator ---- */
+[contenteditable="true"] { cursor: text; }
+[contenteditable="true"]:hover { background: rgba(255,255,255,.04); border-radius: 2px; }
+
+/* ---- Status badges ---- */
+.badge-status {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.badge-rebid  { background: #3a2a00; color: #f0b429; }
+.badge-edit   { background: #1a2a40; color: #4e9af1; }
+.badge-clear  { background: #1a3020; color: #52c46a; }
+.badge-locked { background: #2a1a1a; color: #e05252; }
+
+/* ---- History table ---- */
+.hist-table { width: 100%; font-size: 11px; border-collapse: collapse; }
+.hist-table th { background: #101218; color: var(--text-muted); padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.hist-table td { padding: 5px 8px; border-bottom: 1px solid #16182a; }
+
+/* ---- Misc ---- */
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+}
+.version-tag {
+  font-size: 10px; background: var(--bg-header); border: 1px solid var(--border);
+  border-radius: 3px; padding: 2px 6px; color: var(--text-muted);
+}
+
+input.vfx-input, select.vfx-input {
+  background: var(--bg-header);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+input.vfx-input:focus, select.vfx-input:focus {
+  outline: none;
+  border-color: var(--accent2);
+  background: #1e2040;
+}
+
+/* ---- Toast ---- */
+.vfx-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #1e3025;
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+  display: none;
+}

@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}Bid Compare — VFX Budget System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+  <h5 class="mb-0 fw-bold text-warning">
+    <i class="bi bi-bar-chart-steps me-2"></i>BID COMPARE
+  </h5>
+
+  <select id="ep-filter" class="form-select form-select-sm" style="width:110px;background:#1a1d35;border-color:#2e3050;color:#d0d8f0;">
+    <option value="">All EPs</option>
+  </select>
+
+  <select id="ver-filter" class="form-select form-select-sm" style="width:120px;background:#1a1d35;border-color:#2e3050;color:#d0d8f0;">
+    <option value="">All Versions</option>
+  </select>
+
+  <div class="form-check form-switch mb-0">
+    <input class="form-check-input" type="checkbox" id="show-novfx">
+    <label class="form-check-label small text-muted" for="show-novfx">Show No-VFX</label>
+  </div>
+
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm btn-warning" onclick="openImport()">
+      <i class="bi bi-upload me-1"></i>Import BIDCOMPARE Excel
+    </button>
+    <button class="btn btn-sm btn-outline-danger" onclick="clearData()">
+      <i class="bi bi-trash me-1"></i>Clear
+    </button>
+  </div>
+</div>
+
+<div class="d-flex gap-4 mb-3 flex-wrap" style="font-size:12px;color:#6870a0;">
+  <span>Shots: <strong id="st-shots" class="text-light">0</strong></span>
+  <span>Lock Budget: <strong id="st-lbudget" class="text-warning">$0</strong></span>
+  <span>EFC: <strong id="st-efc" class="text-info">$0</strong></span>
+  <span>Awarded: <strong id="st-awarded" class="text-success">0</strong></span>
+</div>
+
+<div id="err-msg" class="text-danger small mb-2" style="display:none;"></div>
+<div id="bid-table"></div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border" style="border-color:#2e3050!important;">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title text-warning"><i class="bi bi-upload me-2"></i>Import BIDCOMPARE Excel</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small text-muted">Excel File (.xlsx)</label>
+          <input type="file" id="imp-file" class="form-control form-control-sm bg-dark text-light border-secondary" accept=".xlsx,.xls">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted">EP Filter (leave blank for all)</label>
+          <select id="imp-ep" class="form-select form-select-sm bg-dark text-light border-secondary">
+            <option value="">All EPs in file</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted">Mode</label>
+          <select id="imp-mode" class="form-select form-select-sm bg-dark text-light border-secondary">
+            <option value="replace">Replace (clear existing first)</option>
+            <option value="append">Append</option>
+          </select>
+        </div>
+        <div id="imp-status" class="small text-muted"></div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-warning btn-sm" onclick="doImport()">
+          <i class="bi bi-upload me-1"></i>Import
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let bidTable = null;
+let allVendors = [];
+let allRows = [];
+
+const eps = Array.from(
+  {length: {{ session.get('ep_end', 108) - session.get('ep_start', 101) + 1 }}},
+  (_, i) => {{ session.get('ep_start', 101) }} + i
+);
+
+function populateEpFilters() {
+  const sel = document.getElementById('ep-filter');
+  const impSel = document.getElementById('imp-ep');
+  eps.forEach(ep => {
+    sel.innerHTML += `<option value="${ep}">EP ${ep}</option>`;
+    impSel.innerHTML += `<option value="${ep}">EP ${ep}</option>`;
+  });
+}
+
+function fmt(v) {
+  const n = parseFloat(v);
+  if (isNaN(n) || n === 0) return '';
+  return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+function populateVersionFilter(rows) {
+  const sel = document.getElementById('ver-filter');
+  const cur = sel.value;
+  const versions = [...new Set(rows.map(r => r.version).filter(v => v != null))].sort((a,b) => a-b);
+  sel.innerHTML = '<option value="">All Versions</option>' +
+    versions.map(v => `<option value="${v}"${cur==v?' selected':''}>Version ${v}</option>`).join('');
+}
+
+function buildColumns(vendors) {
+  const cols = [
+    { title:'EP',      field:'ep',       width:55,
+      formatter: c => {
+        const v = c.getValue();
+        return `<a href="/ep/${v}" style="color:#f0b429;text-decoration:none;font-weight:600;">EP${v}</a>`;
+      }
+    },
+    { title:'SC',      field:'sc',       width:60,
+      formatter: c => `<b style="color:#e0e6ff;">${c.getValue()||''}</b>`
+    },
+    { title:'SETTING', field:'setting',  width:180,
+      formatter: c => {
+        const v = (c.getValue()||'').trim();
+        return `<span title="${v.replace(/"/g,'&quot;')}">${v}</span>`;
+      }
+    },
+    { title:'VFX TYPE',field:'vfxtype',  width:200,
+      formatter: c => {
+        const v = (c.getValue()||'').replace(/\n/g,' | ');
+        return `<span title="${v.replace(/"/g,'&quot;')}">${v}</span>`;
+      }
+    },
+    { title:'VER',     field:'version',  width:46, hozAlign:'center',
+      formatter: c => `<span style="color:#6870a0;">${c.getValue()||''}</span>`
+    },
+    { title:'AWARD',   field:'award',    width:160,
+      editor: 'input',
+      cellEdited: async function(cell) {
+        const row = cell.getRow();
+        const id  = row.getData().id;
+        const award = (cell.getValue() || '').trim();
+        await fetch(`/api/bidcompare/${id}`, {
+          method: 'PUT',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({award})
+        });
+        row.reformat();
+      },
+      formatter: c => {
+        const v = c.getValue();
+        return v ? `<span style="color:#52c46a;font-weight:600;">${v}</span>`
+                 : `<span style="color:#2a2e50;font-style:italic;font-size:10px;">click to set</span>`;
+      }
+    },
+    { title:'LOCK $',  field:'lockbudget', width:85, hozAlign:'right',
+      formatter: c => fmt(c.getValue())
+    },
+    { title:'EFC',     field:'efc',      width:85, hozAlign:'right',
+      formatter: c => fmt(c.getValue())
+    },
+  ];
+
+  vendors.forEach(v => {
+    cols.push({
+      title: v,
+      field: '_v_' + v,
+      width: 88,
+      hozAlign: 'right',
+      cssClass: 'vendor-col',
+      formatter: function(cell) {
+        const row   = cell.getRow().getData();
+        const award = (row.award || '').toUpperCase();
+        const bids  = row.vendor_bids || {};
+        const val   = bids[v];
+        const disp  = (val !== undefined && val !== null && val !== 0) ? fmt(val) : '';
+        const awardedList = award.split(',').map(x => x.trim());
+        const isAwarded = awardedList.includes(v.toUpperCase());
+        if (isAwarded && disp) {
+          return `<span style="color:#52c46a;font-weight:700;background:rgba(82,196,106,.1);padding:1px 4px;border-radius:3px;">${disp}</span>`;
+        }
+        return disp ? `<span style="color:#4a6080;">${disp}</span>` : '';
+      }
+    });
+  });
+
+  return cols;
+}
+
+function flattenRows(rows) {
+  return rows.map(r => {
+    const flat = Object.assign({}, r);
+    const bids = r.vendor_bids || {};
+    allVendors.forEach(v => {
+      flat['_v_' + v] = bids[v] !== undefined ? bids[v] : null;
+    });
+    return flat;
+  });
+}
+
+function updateStats(rows) {
+  const lbudget = rows.reduce((s,r) => s + (r.lockbudget||0), 0);
+  const efc     = rows.reduce((s,r) => s + (r.efc||0), 0);
+  document.getElementById('st-shots').textContent   = rows.length;
+  document.getElementById('st-lbudget').textContent = fmt(lbudget) || '$0';
+  document.getElementById('st-efc').textContent     = fmt(efc) || '$0';
+  document.getElementById('st-awarded').textContent = rows.filter(r => r.award && r.award.trim()).length;
+}
+
+function filterRows(rows) {
+  const ep  = document.getElementById('ep-filter').value;
+  const ver = document.getElementById('ver-filter').value;
+  const showNovfx = document.getElementById('show-novfx').checked;
+  return rows.filter(r => {
+    if (!showNovfx && r.novfx) return false;
+    if (ep  && String(r.ep)      !== String(ep))  return false;
+    if (ver && String(r.version) !== String(ver)) return false;
+    return true;
+  });
+}
+
+function applyFilters() {
+  if (!bidTable) return;
+  const filtered = filterRows(allRows);
+  updateStats(filtered);
+  bidTable.setData(flattenRows(filtered));
+}
+
+async function loadData() {
+  const errEl = document.getElementById('err-msg');
+  errEl.style.display = 'none';
+  try {
+    const [dataRes, vendorRes] = await Promise.all([
+      fetch('/api/bidcompare'),
+      fetch('/api/bidcompare/vendors')
+    ]);
+    allRows    = await dataRes.json();
+    allVendors = await vendorRes.json();
+
+    populateVersionFilter(allRows.filter(r => !r.novfx));
+
+    const filtered = filterRows(allRows);
+    updateStats(filtered);
+    const flat = flattenRows(filtered);
+    const cols = buildColumns(allVendors);
+
+    if (!bidTable) {
+      bidTable = new Tabulator('#bid-table', {
+        data:           flat,
+        columns:        cols,
+        layout:         'fitData',
+        height:         'calc(100vh - 220px)',
+        placeholder:    'No data — import a BIDCOMPARE Excel file',
+      });
+    } else {
+      bidTable.setColumns(cols);
+      bidTable.setData(flat);
+    }
+  } catch(e) {
+    errEl.textContent = 'Error loading data: ' + e.message;
+    errEl.style.display = 'block';
+    console.error(e);
+  }
+}
+
+function openImport() {
+  document.getElementById('imp-file').value = '';
+  document.getElementById('imp-status').textContent = '';
+  new bootstrap.Modal(document.getElementById('importModal')).show();
+}
+
+async function doImport() {
+  const file = document.getElementById('imp-file').files[0];
+  if (!file) { alert('Select a file first'); return; }
+  const status = document.getElementById('imp-status');
+  status.style.color = '#aaa';
+  status.textContent = 'Importing…';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('mode', document.getElementById('imp-mode').value);
+  const ep = document.getElementById('imp-ep').value;
+  if (ep) fd.append('ep', ep);
+
+  const res  = await fetch('/api/bidcompare/import', {method:'POST', body:fd});
+  const data = await res.json();
+  if (data.error) {
+    status.style.color = '#e05252';
+    status.textContent = 'Error: ' + data.error;
+    return;
+  }
+  status.style.color = '#52c46a';
+  status.textContent = `Imported ${data.inserted} rows.`;
+  setTimeout(() => {
+    bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+    bidTable = null;
+    loadData();
+  }, 700);
+}
+
+async function clearData() {
+  const ep = document.getElementById('ep-filter').value;
+  if (!confirm(ep ? `Clear EP${ep} bid data?` : 'Clear ALL bid compare data?')) return;
+  let url = '/api/bidcompare/clear';
+  if (ep) url += '?ep=' + ep;
+  await fetch(url, {method:'DELETE'});
+  bidTable = null;
+  allRows = [];
+  loadData();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  populateEpFilters();
+  document.getElementById('ep-filter').addEventListener('change', applyFilters);
+  document.getElementById('ver-filter').addEventListener('change', applyFilters);
+  document.getElementById('show-novfx').addEventListener('change', applyFilters);
+  loadData();
+});
+</script>
+
+<style>
+#bid-table { overflow-x: auto; }
+#bid-table .tabulator { border-color: #1e2240; }
+#bid-table .tabulator-cell { padding: 3px 6px; font-size: 12px; }
+#bid-table .tabulator-col-title { font-size: 10px; letter-spacing: .7px; text-transform: uppercase; }
+#bid-table .tabulator-row:hover .tabulator-cell { background: #12152a !important; }
+#bid-table .vendor-col .tabulator-cell { background: #0d0f1c; }
+</style>
+{% endblock %}

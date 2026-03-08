@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% block title %}Assets — VFX Budget System{% endblock %}
+
+{% block content %}
+<!-- Toolbar -->
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+  <h5 class="mb-0 fw-bold text-warning">
+    <i class="bi bi-box-seam me-2"></i>ASSETS
+  </h5>
+
+  <select id="ep-filter" class="form-select form-select-sm" style="width:110px;background:#1a1d35;border-color:#2e3050;color:#d0d8f0;">
+    <option value="">All EPs</option>
+  </select>
+
+  <select id="type-filter" class="form-select form-select-sm" style="width:130px;background:#1a1d35;border-color:#2e3050;color:#d0d8f0;">
+    <option value="">All Types</option>
+  </select>
+
+  <div class="form-check form-switch mb-0">
+    <input class="form-check-input" type="checkbox" id="show-omit">
+    <label class="form-check-label small text-muted" for="show-omit">Show Omit</label>
+  </div>
+
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm btn-warning" onclick="openImport()">
+      <i class="bi bi-upload me-1"></i>Import ASSET Excel
+    </button>
+    <button class="btn btn-sm btn-outline-danger" onclick="clearData()">
+      <i class="bi bi-trash me-1"></i>Clear
+    </button>
+  </div>
+</div>
+
+<!-- EP Summary cards -->
+<div id="summary-row" class="d-flex gap-2 mb-3 flex-wrap"></div>
+
+<!-- Stats -->
+<div class="d-flex gap-4 mb-2 flex-wrap" style="font-size:12px;color:#6870a0;">
+  <span>Assets: <strong id="st-count" class="text-light">0</strong></span>
+  <span>Est Budget: <strong id="st-est" class="text-warning">$0</strong></span>
+  <span>Actual Spend: <strong id="st-actual" class="text-info">$0</strong></span>
+  <span>Variance: <strong id="st-var" class="text-light">$0</strong></span>
+  <span>Awarded: <strong id="st-awarded" class="text-success">0</strong></span>
+</div>
+
+<div id="err-msg" class="text-danger small mb-2" style="display:none;"></div>
+<div id="asset-table"></div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border" style="border-color:#2e3050!important;">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title text-warning"><i class="bi bi-upload me-2"></i>Import ASSET Excel</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small text-muted">Excel File (.xlsx)</label>
+          <input type="file" id="imp-file" class="form-control form-control-sm bg-dark text-light border-secondary" accept=".xlsx,.xls">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted">EP Filter (leave blank for all)</label>
+          <select id="imp-ep" class="form-select form-select-sm bg-dark text-light border-secondary">
+            <option value="">All EPs</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted">Mode</label>
+          <select id="imp-mode" class="form-select form-select-sm bg-dark text-light border-secondary">
+            <option value="replace">Replace (clear existing first)</option>
+            <option value="append">Append</option>
+          </select>
+        </div>
+        <div id="imp-status" class="small text-muted"></div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-warning btn-sm" onclick="doImport()">
+          <i class="bi bi-upload me-1"></i>Import
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let assetTable = null;
+let allAssets  = [];
+let allVendors = [];
+
+const eps = Array.from(
+  {length: {{ session.get('ep_end', 108) - session.get('ep_start', 101) + 1 }}},
+  (_, i) => {{ session.get('ep_start', 101) }} + i
+);
+
+function populateEpFilters() {
+  [document.getElementById('ep-filter'), document.getElementById('imp-ep')].forEach(sel => {
+    if (!sel) return;
+    eps.forEach(ep => sel.innerHTML += `<option value="${ep}">EP ${ep}</option>`);
+  });
+}
+
+function fmt(v) {
+  const n = parseFloat(v);
+  if (isNaN(n) || n === 0) return '';
+  return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+function fmtVar(v) {
+  const n = parseFloat(v);
+  if (isNaN(n) || n === 0) return '';
+  const s = '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+  return n < 0
+    ? `<span style="color:#e05252;">${s} over</span>`
+    : `<span style="color:#52c46a;">+${s}</span>`;
+}
+
+function populateTypeFilter(rows) {
+  const sel = document.getElementById('type-filter');
+  const cur = sel.value;
+  const types = [...new Set(rows.map(r => r.asset_type).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Types</option>' +
+    types.map(t => `<option value="${t}"${cur===t?' selected':''}>${t}</option>`).join('');
+}
+
+function buildSummaryCards(summary) {
+  const ep = document.getElementById('ep-filter').value;
+  const filtered = ep ? summary.filter(r => String(r.ep) === String(ep)) : summary;
+  document.getElementById('summary-row').innerHTML = filtered.map(r => {
+    const variance = (r.actual_spend || 0) - (r.est_budget || 0);
+    const varColor = variance > 0 ? '#e05252' : '#52c46a';
+    return `<div style="background:#10121e;border:1px solid #1e2240;border-radius:8px;padding:10px 14px;min-width:140px;">
+      <div style="font-size:10px;color:#4a5080;font-weight:700;letter-spacing:1px;">EP ${r.ep}</div>
+      <div style="font-size:18px;font-weight:700;color:#e0e6ff;">${r.asset_count || 0} <span style="font-size:11px;color:#4a5080;">assets</span></div>
+      <div style="font-size:11px;color:#f0b429;">Est: ${fmt(r.est_budget)||'$0'}</div>
+      <div style="font-size:11px;color:#7090c0;">Actual: ${fmt(r.actual_spend)||'$0'}</div>
+      ${variance !== 0 ? `<div style="font-size:11px;color:${varColor};">Var: ${fmtVar(variance)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function buildColumns(vendors) {
+  const cols = [
+    { title:'#',      field:'orig_id',    width:40, hozAlign:'center',
+      formatter: c => `<span style="color:#3a4060;">${c.getValue()||''}</span>` },
+    { title:'EP',     field:'ep',         width:50,
+      formatter: c => `<a href="/ep/${c.getValue()}" style="color:#f0b429;text-decoration:none;font-weight:600;">EP${c.getValue()}</a>` },
+    { title:'SC',     field:'scene_code', width:55,
+      formatter: c => `<b style="color:#e0e6ff;">${c.getValue()||''}</b>` },
+    { title:'ASSET',  field:'asset_name', width:140,
+      formatter: c => `<span style="color:#d0d8f0;font-weight:600;">${c.getValue()||''}</span>` },
+    { title:'TYPE',   field:'asset_type', width:90,
+      formatter: c => {
+        const t = c.getValue()||'';
+        const colors = {CREATURE:'#e05252',CHAR:'#7090e0',ENV:'#52c46a',PROP:'#f0b429',
+                        WEAPON:'#e07050',FX:'#a070e0','3D':'#50c0e0',FLUID:'#50a0e0'};
+        const col = colors[t.toUpperCase()] || '#6870a0';
+        return t ? `<span style="color:${col};font-weight:600;font-size:10px;">${t}</span>` : '';
+      }
+    },
+    { title:'TURN',   field:'turnover',   width:70,
+      formatter: c => `<span style="color:#6870a0;font-size:11px;">${c.getValue()||''}</span>` },
+    { title:'DESC',   field:'description',width:180,
+      formatter: c => {
+        const v = (c.getValue()||'').trim();
+        return `<span title="${v.replace(/"/g,'&quot;')}">${v}</span>`;
+      }
+    },
+    { title:'NOTES',  field:'notes',      width:150, editor:'input',
+      cellEdited: async function(cell) {
+        await fetch(`/api/assets/${cell.getRow().getData().id}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({notes: cell.getValue()||''})
+        });
+      },
+      formatter: c => `<span style="color:#7080a0;">${c.getValue()||''}</span>`
+    },
+    { title:'REPEAT', field:'repeat_asset', width:60, hozAlign:'center',
+      formatter: c => c.getValue() ? `<span style="color:#f0b429;">RPT</span>` : '' },
+    { title:'LIDAR',  field:'lidar',       width:50, hozAlign:'center',
+      formatter: c => c.getValue() ? `<span style="color:#50c0e0;">LDR</span>` : '' },
+    { title:'PHOTO',  field:'photogrammetry', width:55, hozAlign:'center',
+      formatter: c => c.getValue() ? `<span style="color:#50c0e0;">PHT</span>` : '' },
+    { title:'EST $',  field:'est_budget',  width:85, hozAlign:'right',
+      formatter: c => fmt(c.getValue()) },
+    { title:'ACTUAL', field:'actual_spend',width:85, hozAlign:'right',
+      formatter: c => fmt(c.getValue()) },
+    { title:'VAR',    field:'_variance',   width:85, hozAlign:'right',
+      formatter: c => fmtVar(c.getValue()) },
+    { title:'AWARD',  field:'award_vendor',width:130,
+      editor: 'input',
+      cellEdited: async function(cell) {
+        const row = cell.getRow();
+        const award = (cell.getValue()||'').trim();
+        await fetch(`/api/assets/${row.getData().id}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({award_vendor: award})
+        });
+        row.reformat();
+      },
+      formatter: c => {
+        const v = c.getValue();
+        return v ? `<span style="color:#52c46a;font-weight:600;">${v}</span>`
+                 : `<span style="color:#2a2e50;font-size:10px;font-style:italic;">click to set</span>`;
+      }
+    },
+  ];
+
+  vendors.forEach(v => {
+    cols.push({
+      title: v, field: '_v_' + v, width: 88, hozAlign:'right',
+      cssClass: 'vendor-col',
+      formatter: function(cell) {
+        const row   = cell.getRow().getData();
+        const award = (row.award_vendor || '').toUpperCase();
+        const bids  = row.vendor_bids || {};
+        const val   = bids[v];
+        const disp  = (val !== undefined && val !== null && val !== 0) ? fmt(val) : '';
+        const isAwarded = award.split(',').map(x => x.trim()).includes(v.toUpperCase());
+        if (isAwarded && disp)
+          return `<span style="color:#52c46a;font-weight:700;background:rgba(82,196,106,.1);padding:1px 4px;border-radius:3px;">${disp}</span>`;
+        return disp ? `<span style="color:#4a6080;">${disp}</span>` : '';
+      }
+    });
+  });
+
+  return cols;
+}
+
+function filterRows(rows) {
+  const ep = document.getElementById('ep-filter').value;
+  const type = document.getElementById('type-filter').value;
+  const showOmit = document.getElementById('show-omit').checked;
+  return rows.filter(r => {
+    if (!showOmit && r.omit) return false;
+    if (ep   && String(r.ep)         !== String(ep))   return false;
+    if (type && (r.asset_type||'')   !== type)         return false;
+    return true;
+  });
+}
+
+function flattenRows(rows) {
+  return rows.map(r => {
+    const flat = Object.assign({}, r);
+    flat._variance = (r.actual_spend||0) - (r.est_budget||0);
+    const bids = r.vendor_bids || {};
+    allVendors.forEach(v => { flat['_v_'+v] = bids[v] !== undefined ? bids[v] : null; });
+    return flat;
+  });
+}
+
+function updateStats(rows) {
+  const est    = rows.reduce((s,r) => s+(r.est_budget||0), 0);
+  const actual = rows.reduce((s,r) => s+(r.actual_spend||0), 0);
+  document.getElementById('st-count').textContent   = rows.length;
+  document.getElementById('st-est').textContent     = fmt(est)||'$0';
+  document.getElementById('st-actual').textContent  = fmt(actual)||'$0';
+  document.getElementById('st-var').innerHTML       = fmtVar(actual-est)||'$0';
+  document.getElementById('st-awarded').textContent = rows.filter(r => r.award_vendor && r.award_vendor.trim()).length;
+}
+
+async function loadData() {
+  const errEl = document.getElementById('err-msg');
+  errEl.style.display = 'none';
+  try {
+    const [dataRes, vendorRes, summaryRes] = await Promise.all([
+      fetch('/api/assets'),
+      fetch('/api/assets/vendors'),
+      fetch('/api/assets/summary'),
+    ]);
+    allAssets  = await dataRes.json();
+    allVendors = await vendorRes.json();
+    const summary = await summaryRes.json();
+
+    populateTypeFilter(allAssets);
+    buildSummaryCards(summary);
+
+    const filtered = filterRows(allAssets);
+    updateStats(filtered);
+    const flat = flattenRows(filtered);
+    const cols = buildColumns(allVendors);
+
+    if (!assetTable) {
+      assetTable = new Tabulator('#asset-table', {
+        data:        flat,
+        columns:     cols,
+        layout:      'fitData',
+        height:      'calc(100vh - 300px)',
+        placeholder: 'No assets — import an ASSET Excel file',
+        rowFormatter: row => {
+          if (row.getData().omit) row.getElement().style.opacity = '0.4';
+        },
+      });
+    } else {
+      assetTable.setColumns(cols);
+      assetTable.setData(flat);
+    }
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = 'block';
+    console.error(e);
+  }
+}
+
+function applyFilters() {
+  if (!assetTable) return;
+  const ep = document.getElementById('ep-filter').value;
+  const filtered = filterRows(allAssets);
+  buildSummaryCards([]);  // rebuild based on current ep filter
+  fetch('/api/assets/summary').then(r=>r.json()).then(s => buildSummaryCards(s));
+  updateStats(filtered);
+  assetTable.setData(flattenRows(filtered));
+}
+
+function openImport() {
+  document.getElementById('imp-file').value = '';
+  document.getElementById('imp-status').textContent = '';
+  new bootstrap.Modal(document.getElementById('importModal')).show();
+}
+
+async function doImport() {
+  const file = document.getElementById('imp-file').files[0];
+  if (!file) { alert('Select a file first'); return; }
+  const status = document.getElementById('imp-status');
+  status.style.color = '#aaa';
+  status.textContent = 'Importing…';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('mode', document.getElementById('imp-mode').value);
+  const ep = document.getElementById('imp-ep').value;
+  if (ep) fd.append('ep', ep);
+  const res  = await fetch('/api/assets/import', {method:'POST', body:fd});
+  const data = await res.json();
+  if (data.error) {
+    status.style.color = '#e05252';
+    status.textContent = 'Error: ' + data.error;
+    return;
+  }
+  status.style.color = '#52c46a';
+  status.textContent = `Imported ${data.inserted} assets.`;
+  setTimeout(() => {
+    bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+    assetTable = null;
+    loadData();
+  }, 700);
+}
+
+async function clearData() {
+  const ep = document.getElementById('ep-filter').value;
+  if (!confirm(ep ? `Clear EP${ep} assets?` : 'Clear ALL asset data?')) return;
+  let url = '/api/assets/clear';
+  if (ep) url += '?ep=' + ep;
+  await fetch(url, {method:'DELETE'});
+  assetTable = null;
+  allAssets = [];
+  loadData();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  populateEpFilters();
+  document.getElementById('ep-filter').addEventListener('change', applyFilters);
+  document.getElementById('type-filter').addEventListener('change', applyFilters);
+  document.getElementById('show-omit').addEventListener('change', applyFilters);
+  loadData();
+});
+</script>
+
+<style>
+#asset-table { overflow-x: auto; }
+#asset-table .tabulator { border-color: #1e2240; }
+#asset-table .tabulator-cell { padding: 3px 6px; font-size: 12px; }
+#asset-table .tabulator-col-title { font-size: 10px; letter-spacing: .7px; text-transform: uppercase; }
+#asset-table .tabulator-row:hover .tabulator-cell { background: #12152a !important; }
+#asset-table .vendor-col .tabulator-cell { background: #0d0f1c; }
+</style>
+{% endblock %}

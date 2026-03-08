@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+{% block title %}Distribution – VFX Budget System{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex align-items-center mb-3 gap-3">
+  <div>
+    <h5 class="mb-0 text-warning fw-bold">EFC SUMMARY &amp; DISTRIBUTION</h5>
+    <div class="text-muted" style="font-size:11px;">VFX ESTIMATES Ep101–108 (Asset + Shot) &nbsp;|&nbsp; <span class="version-tag">v2.3</span></div>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn-vfx btn-vfx-gold" onclick="refreshDist()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+    <button class="btn-vfx btn-vfx-blue" onclick="exportCSV()"><i class="bi bi-download me-1"></i>Export CSV</button>
+  </div>
+</div>
+
+<!-- Summary stat cards -->
+<div class="row g-2 mb-3" id="summary-cards">
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">Total Est. Shots</div>
+      <div class="value" id="sc-shots">—</div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">Total EST Budget <span style="font-size:9px;color:#4e9af1;">(Asset+Shot)</span></div>
+      <div class="value" id="sc-est">—</div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">Total EFC Budget <span style="font-size:9px;color:#4e9af1;">(Asset+Shot)</span></div>
+      <div class="value" id="sc-efc">—</div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="stat-card">
+      <div class="label">Total Variance</div>
+      <div class="value" id="sc-var">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 1 – EFC Summary per EP -->
+<div class="vfx-panel">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-table me-2"></i>EFC SUMMARY — PER EPISODE</span>
+    <span class="text-muted" style="font-size:10px;">Values auto-imported from each EP page</span>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div style="overflow-x:auto;">
+      <table class="dist-table" id="efc-table">
+        <thead>
+          <tr>
+            <th>EP</th>
+            <th>Script_V / Edit_V</th>
+            <th>Est S#</th>
+            <th>Edit #</th>
+            <th>EST BUDGET (asset+ep)</th>
+            <th>EFC Budget (asset+ep)</th>
+            <th>VARIANCE</th>
+            <th>STATUS</th>
+            <th>EST REDUCTION (suggestion)</th>
+            <th>NOTES</th>
+          </tr>
+        </thead>
+        <tbody id="efc-body">
+          <tr><td colspan="10" class="text-center text-muted py-3">Loading…</td></tr>
+        </tbody>
+        <tfoot>
+          <tr class="totals-row" id="efc-totals">
+            <td>TOTAL</td>
+            <td>—</td>
+            <td id="tot-shots">—</td>
+            <td id="tot-edit">—</td>
+            <td id="tot-est">—</td>
+            <td id="tot-efc">—</td>
+            <td id="tot-var">—</td>
+            <td colspan="3">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Section 2 – Breakdown by Sequence -->
+<div class="vfx-panel">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-layout-text-sidebar me-2"></i>BREAKDOWN BY SEQUENCE &amp; HEADLINES</span>
+    <div class="d-flex gap-2 align-items-center">
+      <!-- EP filter -->
+      <select id="seq-ep-filter" class="vfx-input" style="width:110px;" onchange="filterSeqTable()">
+        <option value="">All EPs</option>
+        {% for ep in range(session.get('ep_start',101), session.get('ep_end',108)+1) %}
+        <option value="{{ ep }}">EP {{ ep }}</option>
+        {% endfor %}
+      </select>
+      <!-- Sync dropdown -->
+      <div class="dropdown">
+        <button class="btn btn-sm btn-warning text-dark fw-bold dropdown-toggle"
+                data-bs-toggle="dropdown">
+          <i class="bi bi-arrow-repeat me-1"></i>Sync from EP
+        </button>
+        <ul class="dropdown-menu dropdown-menu-dark" style="min-width:180px;">
+          <li>
+            <a class="dropdown-item" href="#" onclick="syncEPs('all','replace')">
+              <i class="bi bi-layers me-2"></i>All EPs (replace)
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="#" onclick="syncEPs('all','append')">
+              <i class="bi bi-layers me-2"></i>All EPs (append)
+            </a>
+          </li>
+          <li><hr class="dropdown-divider" style="border-color:#2e3050;"></li>
+          {% for ep in range(session.get('ep_start',101), session.get('ep_end',108)+1) %}
+          <li>
+            <a class="dropdown-item" href="#" onclick="syncEPs([{{ ep }}],'replace')">
+              EP {{ ep }} (replace)
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <button class="btn-vfx btn-vfx-gold" onclick="addSeqRow()">
+        <i class="bi bi-plus me-1"></i>Add Row
+      </button>
+    </div>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div id="seq-syncing" style="display:none;padding:10px 14px;font-size:12px;color:#f0b429;">
+      <i class="bi bi-arrow-repeat me-2" style="animation:spin 1s linear infinite;"></i>
+      Syncing sequences from shot data…
+    </div>
+    <div id="seq-table" style="min-height:200px;"></div>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.row-auto-sync { background: #141824 !important; }
+.row-auto-sync .tabulator-cell { color: #8090b8 !important; }
+.asset-pill {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: #4e9af1;
+  background: rgba(78,154,241,.12);
+  border: 1px solid rgba(78,154,241,.3);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 5px;
+  vertical-align: middle;
+  cursor: default;
+}
+</style>
+
+<!-- toast -->
+<div class="vfx-toast" id="toast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STATUS_OPTIONS = [
+  '','? Vendor Rebid Pending','? Editorial-Driven','✓ On Budget','⚠ Over Budget','🔒 Locked','↓ Reducing'
+];
+
+let distData = [];
+let seqTable = null;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function fmt$(v){ return v==null||v===''?'—':'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtN(v){ return v==null||v===''?'—':Number(v).toLocaleString(); }
+
+function varClass(v){
+  if(v>0)  return 'cell-neg';
+  if(v<0)  return 'cell-pos';
+  return 'cell-zero';
+}
+function varFmt(v){ return v==null?'—': (v>0?'+':'')+fmt$(v); }
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none',2000);
+}
+
+// ── Distribution data ─────────────────────────────────────────────────────────
+async function refreshDist(){
+  const res = await fetch('/api/distribution');
+  distData = await res.json();
+  renderEFCTable(distData);
+}
+
+function renderEFCTable(data){
+  const tbody = document.getElementById('efc-body');
+  tbody.innerHTML = '';
+  let tShots=0,tEdit=0,tEst=0,tEfc=0;
+
+  data.forEach(row => {
+    tShots += row.est_shots||0;
+    tEdit  += row.edit_shots||0;
+    tEst   += row.est_budget||0;
+    tEfc   += row.efc_budget||0;
+    const variance = (row.efc_budget||0) - (row.est_budget||0);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><a href="/ep/${row.ep}" class="ep-num">${row.ep}</a></td>
+      <td>
+        <span class="text-muted" style="font-size:10px;">S:</span>
+        <span contenteditable="true" class="me-2" data-ep="${row.ep}" data-field="script_v"
+              onblur="saveMeta(this)">${row.script_v||'—'}</span>
+        <span class="text-muted" style="font-size:10px;">E:</span>
+        <span contenteditable="true" data-ep="${row.ep}" data-field="edit_v"
+              onblur="saveMeta(this)">${row.edit_v||'—'}</span>
+      </td>
+      <td>${fmtN(row.est_shots)}</td>
+      <td>${fmtN(row.edit_shots)}</td>
+      <td>
+        ${fmt$(row.est_budget)}
+        ${row.asset_est ? `<span class="asset-sub" title="Shot: ${fmt$(row.shot_est)} + Asset: ${fmt$(row.asset_est)}">
+          <span class="asset-pill">A+S</span></span>` : ''}
+      </td>
+      <td>
+        ${fmt$(row.efc_budget)}
+        ${row.asset_efc ? `<span class="asset-sub" title="Shot EFC: ${fmt$(row.shot_efc)} + Asset Actual: ${fmt$(row.asset_efc)}">
+          <span class="asset-pill">A+S</span></span>` : ''}
+      </td>
+      <td class="${varClass(variance)}">${varFmt(variance)}</td>
+      <td>
+        <select class="vfx-input" data-ep="${row.ep}" data-field="status"
+                onchange="saveMeta(this)" style="width:170px;">
+          ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${s===row.status?'selected':''}>${s||'— Select —'}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <span contenteditable="true" data-ep="${row.ep}" data-field="reduction_notes"
+              onblur="saveMeta(this)">${row.reduction_notes||''}</span>
+      </td>
+      <td>
+        <span contenteditable="true" data-ep="${row.ep}" data-field="notes"
+              onblur="saveMeta(this)">${row.notes||''}</span>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  const tVar = tEfc - tEst;
+  document.getElementById('tot-shots').textContent = fmtN(tShots);
+  document.getElementById('tot-edit').textContent  = fmtN(tEdit);
+  document.getElementById('tot-est').textContent   = fmt$(tEst);
+  document.getElementById('tot-efc').textContent   = fmt$(tEfc);
+  const totVarEl = document.getElementById('tot-var');
+  totVarEl.textContent  = varFmt(tVar);
+  totVarEl.className    = varClass(tVar);
+
+  // stat cards
+  document.getElementById('sc-shots').textContent = fmtN(tShots);
+  document.getElementById('sc-est').textContent   = fmt$(tEst);
+  document.getElementById('sc-efc').textContent   = fmt$(tEfc);
+  const scv = document.getElementById('sc-var');
+  scv.textContent = varFmt(tVar);
+  scv.className   = 'value ' + varClass(tVar);
+}
+
+async function saveMeta(el){
+  const ep    = el.dataset.ep;
+  const field = el.dataset.field;
+  const value = el.tagName === 'SELECT' ? el.value : el.textContent.trim();
+  await fetch(`/api/ep_meta/${ep}`, {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[field]: value})
+  });
+  toast('Saved');
+}
+
+// ── Sequences table ───────────────────────────────────────────────────────────
+function buildSeqTable(data){
+  if(seqTable){ seqTable.destroy(); seqTable=null; }
+
+  seqTable = new Tabulator('#seq-table', {
+    data: data,
+    layout: 'fitDataFill',
+    height: '420px',
+    movableRows: false,
+    rowFormatter: row => {
+      if(row.getData().auto_sync)
+        row.getElement().classList.add('row-auto-sync');
+    },
+    columnDefaults: { headerSort: true, resizable: true },
+    columns: [
+      { title:'EP', field:'ep', width:60, hozAlign:'center',
+        formatter: c => `<a href="/ep/${c.getValue()}" style="color:#f0b429;font-weight:700;">${c.getValue()}</a>`,
+        editor:'number', editorParams:{min:101,max:110}, cellEdited: saveSeqCell },
+      { title:'', field:'auto_sync', width:30, hozAlign:'center', headerSort:false,
+        formatter: c => c.getValue()
+          ? '<i class="bi bi-arrow-repeat" title="Auto-synced from EP shots" style="color:#4e9af1;font-size:11px;"></i>'
+          : '',
+      },
+      { title:'SCENE #', field:'seq_name', width:90, hozAlign:'center',
+        formatter: c => `<span style="color:#a8b4e0;font-weight:600;">${c.getValue()||''}</span>`,
+        editor:'input', cellEdited: saveSeqCell },
+      { title:'LOC', field:'location', width:130,
+        editor:'input', cellEdited: saveSeqCell },
+      { title:'OMIT', field:'omit', width:55, formatter:'tickCross',
+        formatterParams:{allowEmpty:true}, editor:'tickCross',
+        cellEdited: saveSeqCell },
+      { title:'EST S#', field:'est_shots', width:70, hozAlign:'right',
+        editor:'number', cellEdited: saveSeqCell },
+      { title:'CUT #', field:'current_cut', width:70, hozAlign:'right',
+        editor:'number', cellEdited: saveSeqCell },
+      { title:'LBUDGET', field:'lbudget', width:110, hozAlign:'right',
+        formatter: c => c.getValue() ? '$'+Number(c.getValue()).toLocaleString() : '',
+        editor:'number', cellEdited: saveSeqCell },
+      { title:'EFC', field:'efc', width:110, hozAlign:'right',
+        formatter: c => c.getValue() ? '$'+Number(c.getValue()).toLocaleString() : '',
+        editor:'number', cellEdited: saveSeqCell },
+      { title:'VARIANCE', field:'variance_val', width:110, hozAlign:'right',
+        formatter: varFormatter, editor:'number', cellEdited: saveSeqCell },
+      { title:'STATUS', field:'status', width:180,
+        editor:'list', editorParams:{values: STATUS_OPTIONS},
+        cellEdited: saveSeqCell },
+      { title:'EST REDUCTIONS', field:'est_reductions', width:220,
+        editor:'textarea', formatter:'textarea', cellEdited: saveSeqCell },
+      { title:'EST CTD', field:'est_ctd', width:100, hozAlign:'right',
+        formatter: c => c.getValue() ? '$'+Number(c.getValue()).toLocaleString() : '',
+        editor:'number', cellEdited: saveSeqCell },
+      { title:'TURNOVER DEADLINE', field:'turnover_deadline', width:150,
+        editor:'input', cellEdited: saveSeqCell },
+      { title:'NOTES', field:'notes', width:200,
+        editor:'textarea', formatter:'textarea', cellEdited: saveSeqCell },
+      { title:'', width:40, hozAlign:'center', headerSort:false,
+        formatter:()=>'<i class="bi bi-trash" style="color:#e05252;cursor:pointer;"></i>',
+        cellClick:(e,cell)=>deleteSeq(cell.getRow()) }
+    ]
+  });
+}
+
+function filterSeqTable(){
+  const ep = document.getElementById('seq-ep-filter').value;
+  if(!seqTable) return;
+  if(ep) seqTable.setFilter('ep', '=', parseInt(ep));
+  else seqTable.clearFilter();
+}
+
+function varFormatter(cell){
+  const v = cell.getValue();
+  if(v==null||v==='') return '';
+  const el = cell.getElement();
+  el.classList.remove('cell-neg','cell-pos','cell-zero');
+  if(v>0) el.classList.add('cell-neg');
+  else if(v<0) el.classList.add('cell-pos');
+  else el.classList.add('cell-zero');
+  return (v>0?'+':'')+'$'+Number(v).toLocaleString();
+}
+
+async function saveSeqCell(cell){
+  const row = cell.getRow().getData();
+  if(!row.id) return;
+  await fetch(`/api/sequences/${row.id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[cell.getField()]: cell.getValue()})
+  });
+  toast('Saved');
+}
+
+async function addSeqRow(){
+  const ep = parseInt(prompt('Episode number (101-108):')) || 101;
+  const res = await fetch('/api/sequences', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ep})
+  });
+  const data = await res.json();
+  seqTable.addRow({id: data.id, ep, seq_name:'', location:'', omit:false,
+    est_shots:0, current_cut:0, lbudget:0, efc:0, variance_val:0,
+    status:'', est_reductions:'', est_ctd:0, turnover_deadline:'', notes:''});
+  toast('Row added');
+}
+
+async function deleteSeq(row){
+  if(!confirm('Delete this sequence row?')) return;
+  await fetch(`/api/sequences/${row.getData().id}`, {method:'DELETE'});
+  row.delete();
+  toast('Deleted');
+}
+
+function exportCSV(){
+  if(!seqTable) return;
+  seqTable.download('csv','sequences.csv');
+}
+
+// ── Sync sequences from EP shot data ─────────────────────────────────────────
+async function syncEPs(eps, mode){
+  const epStart = {{ session.get('ep_start', 101) }};
+  const epEnd   = {{ session.get('ep_end',   108) }};
+  const allEps  = Array.from({length: epEnd - epStart + 1}, (_,i) => epStart + i);
+  const epList  = eps === 'all' ? allEps : eps;
+
+  const modeLabel = mode === 'replace'
+    ? `Replace auto-synced rows for EP${epList.join(', EP')}`
+    : `Append new rows for EP${epList.join(', EP')}`;
+  if(!confirm(`${modeLabel}?\n\nThis will aggregate shots from each EP grouped by Location.`)) return;
+
+  document.getElementById('seq-syncing').style.display = 'block';
+  document.getElementById('seq-table').style.opacity   = '0.4';
+
+  const res = await fetch('/api/sequences/sync', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({eps: epList, mode})
+  });
+  const data = await res.json();
+
+  document.getElementById('seq-syncing').style.display = 'none';
+  document.getElementById('seq-table').style.opacity   = '1';
+
+  if(data.error){ toast('Sync error: ' + data.error); return; }
+
+  // Reload sequences table
+  const r2 = await fetch('/api/sequences');
+  const seqData = await r2.json();
+  buildSeqTable(seqData);
+  filterSeqTable();
+  toast(`Synced ${data.inserted} sequence rows from EP${epList.join(', EP')}`);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init(){
+  await refreshDist();
+  const res2 = await fetch('/api/sequences');
+  const seqData = await res2.json();
+  buildSeqTable(seqData);
+}
+init();
+</script>
+{% endblock %}

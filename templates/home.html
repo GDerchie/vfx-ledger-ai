@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFX Budget App</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #07080f;
+    color: #d0d8f0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .home-wrap {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  /* Clapperboard icon */
+  .clap-icon {
+    font-size: 48px;
+    margin-bottom: 14px;
+    display: block;
+    filter: drop-shadow(0 0 12px rgba(120,100,220,.5));
+  }
+
+  .home-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+  }
+
+  .home-sub {
+    font-size: 13px;
+    color: #6870a0;
+    margin-bottom: 10px;
+  }
+
+  .status-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #52c46a;
+    margin-bottom: 24px;
+  }
+  .status-dot::before {
+    content: '';
+    width: 8px; height: 8px;
+    background: #52c46a;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #52c46a;
+  }
+
+  /* Project panel */
+  .proj-panel {
+    background: #10121e;
+    border: 1px solid #1e2240;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .proj-panel-header {
+    padding: 10px 16px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: #4a5080;
+    border-bottom: 1px solid #1a1d30;
+  }
+
+  .proj-list { list-style: none; }
+
+  .proj-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border-bottom: 1px solid #141628;
+    cursor: pointer;
+    transition: background .15s;
+    text-decoration: none;
+    color: inherit;
+  }
+  .proj-item:last-child { border-bottom: none; }
+  .proj-item:hover { background: #161928; }
+  .proj-item.active-proj { background: #141a2e; }
+
+  .proj-icon {
+    width: 32px; height: 32px;
+    background: #1a1d35;
+    border: 1px solid #252848;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6870c0;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .proj-info { flex: 1; text-align: left; }
+  .proj-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #e0e6ff;
+    letter-spacing: .3px;
+  }
+  .proj-meta {
+    font-size: 11px;
+    color: #4a5080;
+    margin-top: 1px;
+  }
+
+  .proj-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .proj-item:hover .proj-actions { opacity: 1; }
+  .proj-action-btn {
+    background: none;
+    border: 1px solid #252848;
+    border-radius: 4px;
+    color: #6870a0;
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .proj-action-btn:hover { border-color: #e05252; color: #e05252; background: #1a1010; }
+  .proj-action-btn.edit-btn:hover { border-color: #f0b429; color: #f0b429; background: #1a1500; }
+
+  .empty-state {
+    padding: 28px 16px;
+    color: #3a4060;
+    font-size: 13px;
+  }
+  .empty-state i { font-size: 28px; display: block; margin-bottom: 8px; }
+
+  /* New project button */
+  .btn-new-project {
+    width: 100%;
+    background: #3d3cbf;
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s;
+    letter-spacing: .3px;
+  }
+  .btn-new-project:hover { background: #4a49d4; }
+
+  /* New project form (inline expand) */
+  .new-proj-form {
+    background: #10121e;
+    border: 1px solid #1e2240;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 12px;
+    display: none;
+    text-align: left;
+  }
+  .new-proj-form.open { display: block; }
+
+  .form-label-vfx {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #4a5080;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .form-input-vfx {
+    width: 100%;
+    background: #0d0e1a;
+    border: 1px solid #1e2240;
+    border-radius: 6px;
+    color: #d0d8f0;
+    padding: 8px 12px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .form-input-vfx:focus { border-color: #3d3cbf; }
+  .form-input-vfx::placeholder { color: #2e3260; }
+
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+  .form-group { margin-bottom: 12px; }
+
+  .btn-create {
+    width: 100%;
+    background: #3d3cbf;
+    border: none;
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    margin-top: 4px;
+  }
+  .btn-create:hover { background: #4a49d4; }
+  .btn-cancel {
+    width: 100%;
+    background: none;
+    border: 1px solid #1e2240;
+    color: #4a5080;
+    padding: 9px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: all .15s;
+  }
+  .btn-cancel:hover { border-color: #3d3cbf; color: #d0d8f0; }
+
+  /* Edit modal */
+  .edit-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .edit-overlay.open { display: flex; }
+  .edit-modal {
+    background: #10121e;
+    border: 1px solid #1e2240;
+    border-radius: 10px;
+    padding: 24px;
+    width: 340px;
+  }
+  .edit-modal h6 { color: #e0e6ff; font-size: 13px; font-weight: 700; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div class="home-wrap">
+  <!-- Icon + title -->
+  <span class="clap-icon">🎬</span>
+  <div class="home-title">VFX Budget App</div>
+  <div class="home-sub">Select or create a project to begin</div>
+  <div class="status-dot" id="status-txt">Connecting…</div>
+
+  <!-- Recent projects -->
+  <div class="proj-panel">
+    <div class="proj-panel-header">Recent Projects</div>
+    <ul class="proj-list" id="proj-list">
+      <li class="empty-state">
+        <i class="bi bi-folder2-open"></i>No projects yet
+      </li>
+    </ul>
+  </div>
+
+  <!-- New project form (hidden by default) -->
+  <div class="new-proj-form" id="new-proj-form">
+    <div class="form-group">
+      <label class="form-label-vfx">Project Name</label>
+      <input id="np-name" class="form-input-vfx" placeholder="e.g. SIDEWINDER" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label-vfx">Season</label>
+        <input id="np-season" class="form-input-vfx" value="S1" placeholder="S1">
+      </div>
+      <div class="form-group">
+        <label class="form-label-vfx">EP Range</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="np-ep-start" class="form-input-vfx" value="101" style="width:64px;">
+          <span style="color:#3a4060;font-size:11px;">–</span>
+          <input id="np-ep-end" class="form-input-vfx" value="108" style="width:64px;">
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label-vfx">Description (optional)</label>
+      <input id="np-desc" class="form-input-vfx" placeholder="e.g. Feature film VFX budget">
+    </div>
+    <button class="btn-create" onclick="createProject()">Create Project</button>
+    <button class="btn-cancel" onclick="toggleNewForm(false)">Cancel</button>
+  </div>
+
+  <!-- New project button -->
+  <button class="btn-new-project" id="btn-new" onclick="toggleNewForm(true)">
+    + New Project
+  </button>
+</div>
+
+<!-- Edit modal -->
+<div class="edit-overlay" id="edit-overlay" onclick="if(event.target===this)closeEdit()">
+  <div class="edit-modal">
+    <h6>Edit Project</h6>
+    <input type="hidden" id="edit-id">
+    <div class="form-group">
+      <label class="form-label-vfx">Project Name</label>
+      <input id="edit-name" class="form-input-vfx" placeholder="Project name">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label-vfx">Season</label>
+        <input id="edit-season" class="form-input-vfx">
+      </div>
+      <div class="form-group">
+        <label class="form-label-vfx">Description</label>
+        <input id="edit-desc" class="form-input-vfx">
+      </div>
+    </div>
+    <button class="btn-create" onclick="saveEdit()">Save Changes</button>
+    <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+  </div>
+</div>
+
+<script>
+async function loadProjects(){
+  try {
+    const res = await fetch('/api/projects');
+    const projects = await res.json();
+    document.getElementById('status-txt').textContent = 'Backend connected';
+
+    const list = document.getElementById('proj-list');
+    if(!projects.length){
+      list.innerHTML = `<li class="empty-state">
+        <i class="bi bi-folder2-open"></i>No projects yet — create one below
+      </li>`;
+      return;
+    }
+    list.innerHTML = projects.map(p => `
+      <li>
+        <a class="proj-item" href="/projects/${p.id}/open">
+          <div class="proj-icon"><i class="bi bi-grid-3x2-gap-fill"></i></div>
+          <div class="proj-info">
+            <div class="proj-name">${p.name}</div>
+            <div class="proj-meta">${p.season} — ${p.db_filename}</div>
+          </div>
+          <div class="proj-actions" onclick="event.preventDefault();event.stopPropagation();">
+            <button class="proj-action-btn edit-btn" title="Rename"
+                    onclick="openEdit(${p.id},'${p.name}','${p.season}','${(p.description||'').replace(/'/g,"\\'")}')">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="proj-action-btn" title="Delete"
+                    onclick="deleteProject(${p.id},'${p.name}')">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </a>
+      </li>`).join('');
+  } catch(e) {
+    document.getElementById('status-txt').textContent = 'Backend error';
+    document.getElementById('status-txt').style.color = '#e05252';
+  }
+}
+
+function toggleNewForm(open){
+  document.getElementById('new-proj-form').classList.toggle('open', open);
+  document.getElementById('btn-new').style.display = open ? 'none' : '';
+  if(open) document.getElementById('np-name').focus();
+  else {
+    document.getElementById('np-name').value = '';
+    document.getElementById('np-season').value = 'S1';
+    document.getElementById('np-ep-start').value = '101';
+    document.getElementById('np-ep-end').value = '108';
+    document.getElementById('np-desc').value = '';
+  }
+}
+
+async function createProject(){
+  const name    = document.getElementById('np-name').value.trim();
+  const season  = document.getElementById('np-season').value.trim() || 'S1';
+  const epStart = parseInt(document.getElementById('np-ep-start').value) || 101;
+  const epEnd   = parseInt(document.getElementById('np-ep-end').value) || 108;
+  const desc    = document.getElementById('np-desc').value.trim();
+
+  if(!name){ document.getElementById('np-name').focus(); return; }
+
+  const res = await fetch('/api/projects', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, season, ep_start: epStart, ep_end: epEnd, description: desc})
+  });
+  const data = await res.json();
+  if(data.error){ alert(data.error); return; }
+
+  toggleNewForm(false);
+  await loadProjects();
+}
+
+async function deleteProject(id, name){
+  if(!confirm(`Delete project "${name}"?\n\nThis will permanently delete the .vfxdb file and all its data.`)) return;
+  await fetch(`/api/projects/${id}`, {method:'DELETE'});
+  await loadProjects();
+}
+
+function openEdit(id, name, season, desc){
+  document.getElementById('edit-id').value     = id;
+  document.getElementById('edit-name').value   = name;
+  document.getElementById('edit-season').value = season;
+  document.getElementById('edit-desc').value   = desc;
+  document.getElementById('edit-overlay').classList.add('open');
+}
+
+function closeEdit(){
+  document.getElementById('edit-overlay').classList.remove('open');
+}
+
+async function saveEdit(){
+  const id     = document.getElementById('edit-id').value;
+  const name   = document.getElementById('edit-name').value.trim();
+  const season = document.getElementById('edit-season').value.trim();
+  const desc   = document.getElementById('edit-desc').value.trim();
+  if(!name) return;
+  await fetch(`/api/projects/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, season, description: desc})
+  });
+  closeEdit();
+  await loadProjects();
+}
+
+// Enter key on name field
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('np-name').addEventListener('keydown', e => {
+    if(e.key === 'Enter') createProject();
+  });
+  loadProjects();
+});
+</script>
+</body>
+</html>

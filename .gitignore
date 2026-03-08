@@ -1,0 +1,4 @@
+*.vfxdb
+*.db
+__pycache__/
+*.pyc
