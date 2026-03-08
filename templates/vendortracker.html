@@ -1,0 +1,996 @@
+{% extends "base.html" %}
+{% block title %}Vendor Tracker — VFX Budget System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+  <h5 class="mb-0 fw-bold text-warning">
+    <i class="bi bi-receipt me-2"></i>VENDOR TRACKER
+  </h5>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm btn-warning" onclick="openImport()">
+      <i class="bi bi-upload me-1"></i>Import Excel
+    </button>
+    <button class="btn btn-sm btn-outline-danger" onclick="clearData()">
+      <i class="bi bi-trash me-1"></i>Clear All
+    </button>
+  </div>
+</div>
+
+<div id="err-msg" class="text-danger small mb-2" style="display:none;"></div>
+
+<!-- Tax Region Reference Table -->
+<div class="mb-3">
+  <div style="background:#12152a;border:1px solid #2e3050;border-radius:6px;overflow:hidden;">
+    <div class="d-flex align-items-center px-3 py-2" style="border-bottom:1px solid #2e3050;cursor:pointer;"
+         onclick="document.getElementById('tax-region-body').style.display = document.getElementById('tax-region-body').style.display==='none' ? '' : 'none';">
+      <span style="font-size:10px;font-weight:700;letter-spacing:.8px;color:#6870a0;">
+        <i class="bi bi-globe me-2"></i>TAX REGION REFERENCE
+      </span>
+      <span style="font-size:10px;color:#2e3050;margin-left:8px;">▼ click to toggle</span>
+    </div>
+    <div id="tax-region-body">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:#0d0f1c;">
+            <th style="padding:5px 10px;color:#6870a0;font-weight:600;letter-spacing:.6px;border-right:1px solid #1e2240;">REGION</th>
+            <th style="padding:5px 10px;color:#6870a0;font-weight:600;letter-spacing:.6px;border-right:1px solid #1e2240;">EXCHANGE</th>
+            <th style="padding:5px 10px;color:#6870a0;font-weight:600;letter-spacing:.6px;border-right:1px solid #1e2240;">SALE TAX</th>
+            <th style="padding:5px 10px;color:#6870a0;font-weight:600;letter-spacing:.6px;border-right:1px solid #1e2240;">TAX REBATE (vfx)</th>
+            <th style="padding:5px 10px;font-weight:700;letter-spacing:.5px;border-right:1px solid #1e2240;background:#2a2200;color:#f0b429;">ADD <span style="font-style:italic;font-weight:400;font-size:10px;">(not guaranteed)</span></th>
+            <th style="padding:5px 10px;font-weight:700;letter-spacing:.5px;border-right:1px solid #1e2240;background:#3a1800;color:#ff8c00;">Hypothetical Max (Rebate)</th>
+            <th style="padding:5px 10px;color:#6870a0;font-weight:600;letter-spacing:.6px;">TAX CODE</th>
+          </tr>
+        </thead>
+        <tbody id="tax-region-rows">
+          <tr class="tax-row">
+            <td class="tr-region">BC</td>
+            <td class="tr-exchange">$ 0.73</td>
+            <td class="tr-saletax">12%</td>
+            <td class="tr-rebate">32%</td>
+            <td class="tr-add" style="color:#f0b429;">28%</td>
+            <td class="tr-hypmax" style="color:#ff8c00;">60%</td>
+            <td class="tr-code">PSTC-BC</td>
+          </tr>
+          <tr class="tax-row">
+            <td class="tr-region">UK</td>
+            <td class="tr-exchange">$ 0.88</td>
+            <td class="tr-saletax">20%</td>
+            <td class="tr-rebate">39%</td>
+            <td class="tr-add" style="color:#f0b429;"></td>
+            <td class="tr-hypmax" style="color:#ff8c00;">39%</td>
+            <td class="tr-code">AVEC VFX credit @ 39%</td>
+          </tr>
+          <tr class="tax-row">
+            <td class="tr-region">QC</td>
+            <td class="tr-exchange">$ 1.45</td>
+            <td class="tr-saletax">13%</td>
+            <td class="tr-rebate">37%</td>
+            <td class="tr-add" style="color:#f0b429;">20%</td>
+            <td class="tr-hypmax" style="color:#ff8c00;">57%</td>
+            <td class="tr-code">QPSTC</td>
+          </tr>
+          <tr class="tax-row">
+            <td class="tr-region">ON</td>
+            <td class="tr-exchange">$ 0.73</td>
+            <td class="tr-saletax">13%</td>
+            <td class="tr-rebate">34%</td>
+            <td class="tr-add" style="color:#f0b429;">22%</td>
+            <td class="tr-hypmax" style="color:#ff8c00;">56%</td>
+            <td class="tr-code">OPSTC</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Stats row (per-episode) -->
+<div id="ep-stats-row" class="d-flex gap-2 mb-3 flex-wrap"></div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-2" style="border-color:#2e3050;">
+  <li class="nav-item">
+    <button class="nav-link active" id="tab-tracker" onclick="showTab('tracker')">
+      <i class="bi bi-table me-1"></i>Vendor Tracking
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" id="tab-invoice" onclick="showTab('invoice')">
+      <i class="bi bi-receipt-cutoff me-1"></i>Invoice Log
+    </button>
+  </li>
+</ul>
+
+<!-- Tracker pane -->
+<div id="pane-tracker">
+  <div class="mb-2">
+    <button class="btn btn-sm btn-outline-success" onclick="openAddTracker()">
+      <i class="bi bi-plus-lg me-1"></i>Add Row
+    </button>
+  </div>
+  <div id="tracker-table"></div>
+</div>
+
+<!-- Invoice pane -->
+<div id="pane-invoice" style="display:none;">
+  <div class="mb-2">
+    <button class="btn btn-sm btn-outline-success" onclick="openAddInvoice()">
+      <i class="bi bi-plus-lg me-1"></i>Add Invoice
+    </button>
+  </div>
+  <div id="invoice-table"></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     ADD / EDIT TRACKER modal
+     ════════════════════════════════════════════ -->
+<div class="modal fade" id="trackerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content bg-dark border" style="border-color:#2e3050!important;">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title text-warning" id="tm-title">
+          <i class="bi bi-table me-2"></i>Add Vendor Tracking Row
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="tm-id">
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Vendor</label>
+            <input type="text" id="tm-vendor" class="form-control form-control-sm vt-input" placeholder="SCANLINE">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">Region</label>
+            <input type="text" id="tm-region" class="form-control form-control-sm vt-input" placeholder="CA/BC" oninput="recalcModal('gross_usd')">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">EP</label>
+            <input type="number" id="tm-ep" class="form-control form-control-sm vt-input" placeholder="101">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Tax Reb %</label>
+            <input type="number" id="tm-tax-reb" class="form-control form-control-sm vt-input" placeholder="0.31" step="0.01" oninput="recalcModal('tax_reb')">
+          </div>
+        </div>
+        <hr class="border-secondary my-2">
+        <p class="small text-muted mb-2">Award / Payments (USD)</p>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Asset Award</label>
+            <input type="number" id="tm-asset-award" class="form-control form-control-sm vt-input" placeholder="0" oninput="recalcModal('asset_award')">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Award EP</label>
+            <input type="number" id="tm-award-ep" class="form-control form-control-sm vt-input" placeholder="0" oninput="recalcModal('asset_award')">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Total Award (Asset+EP)</label>
+            <input type="number" id="tm-tot-award" class="form-control form-control-sm vt-input" placeholder="0" oninput="recalcModal('tot_award')">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Paid</label>
+            <input type="number" id="tm-paid" class="form-control form-control-sm vt-input" placeholder="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Pending</label>
+            <input type="number" id="tm-pending" class="form-control form-control-sm vt-input" placeholder="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Remaining</label>
+            <input type="number" id="tm-remaining" class="form-control form-control-sm vt-input" placeholder="0">
+          </div>
+        </div>
+        <hr class="border-secondary my-2">
+        <p class="small text-muted mb-2">Tax Calculations</p>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Gross (local currency) <span style="color:#f0b429;font-size:9px;">← auto</span></label>
+            <input type="number" id="tm-gross-local" class="form-control form-control-sm vt-input" placeholder="0" style="color:#f0b429;">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Gross (USD) <span style="color:#f0b429;font-size:9px;">← auto</span></label>
+            <input type="number" id="tm-gross-usd" class="form-control form-control-sm vt-input" placeholder="0" style="color:#f0b429;" oninput="recalcModal('gross_usd')">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Sale Tax Amount</label>
+            <input type="number" id="tm-sale-tax" class="form-control form-control-sm vt-input" placeholder="0" oninput="recalcModal('sale_tax_amount')">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Gross + Sale Tax <span style="color:#f0b429;font-size:9px;">← auto</span></label>
+            <input type="number" id="tm-gross-plus-tax" class="form-control form-control-sm vt-input" placeholder="0" style="color:#f0b429;" readonly>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Tax Rebate Amount <span style="color:#f0b429;font-size:9px;">← auto</span></label>
+            <input type="number" id="tm-tax-rebate-amt" class="form-control form-control-sm vt-input" placeholder="0" style="color:#f0b429;" readonly>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Net (after rebate) <span style="color:#f0b429;font-size:9px;">← auto</span></label>
+            <input type="number" id="tm-net" class="form-control form-control-sm vt-input" placeholder="0" style="color:#52c46a;" readonly>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Final Price</label>
+            <input type="number" id="tm-final" class="form-control form-control-sm vt-input" placeholder="0">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-warning btn-sm" onclick="saveTracker()">
+          <i class="bi bi-check-lg me-1"></i>Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     ADD / EDIT INVOICE modal
+     ════════════════════════════════════════════ -->
+<div class="modal fade" id="invoiceModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border" style="border-color:#2e3050!important;">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title text-warning" id="im-title">
+          <i class="bi bi-receipt-cutoff me-2"></i>Add Invoice
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="im-id">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small text-muted mb-1">Vendor</label>
+            <input type="text" id="im-vendor" class="form-control form-control-sm vt-input" placeholder="SCANLINE">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Episode</label>
+            <input type="number" id="im-episode" class="form-control form-control-sm vt-input" placeholder="101">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">INV #</label>
+            <input type="text" id="im-inv-num" class="form-control form-control-sm vt-input" placeholder="SC001">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Invoice Date</label>
+            <input type="date" id="im-inv-date" class="form-control form-control-sm vt-input">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Amount (USD)</label>
+            <input type="number" id="im-amount" class="form-control form-control-sm vt-input" placeholder="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Status</label>
+            <select id="im-status" class="form-select form-select-sm vt-input">
+              <option value="">—</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Paid">Paid</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-muted mb-1">Approve Date</label>
+            <input type="date" id="im-approve-date" class="form-control form-control-sm vt-input">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-muted mb-1">Notes</label>
+            <input type="text" id="im-notes" class="form-control form-control-sm vt-input" placeholder="">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-warning btn-sm" onclick="saveInvoice()">
+          <i class="bi bi-check-lg me-1"></i>Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border" style="border-color:#2e3050!important;">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title text-warning"><i class="bi bi-upload me-2"></i>Import VENDORTRACKER Excel</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">
+          Reads sheets <strong class="text-light">VENDORINVTRACK</strong> and
+          <strong class="text-light">INVOICELOG</strong> only.
+        </p>
+        <div class="mb-3">
+          <label class="form-label small text-muted">Excel File (.xlsx)</label>
+          <input type="file" id="imp-file" class="form-control form-control-sm bg-dark text-light border-secondary" accept=".xlsx,.xls">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted">Mode</label>
+          <select id="imp-mode" class="form-select form-select-sm bg-dark text-light border-secondary">
+            <option value="replace">Replace (clear existing first)</option>
+            <option value="append">Append</option>
+          </select>
+        </div>
+        <div id="imp-status" class="small text-muted"></div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-warning btn-sm" onclick="doImport()">
+          <i class="bi bi-upload me-1"></i>Import
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let trackerTable = null;
+let invoiceTable = null;
+let allTracker   = [];
+let allInvoices  = [];
+
+// ── Formatters ──────────────────────────────────────────────────────
+function fmt(v) {
+  const n = parseFloat(v);
+  if (isNaN(n) || v === null || v === undefined) return '';
+  return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+function fmtPct(v) {
+  if (v === null || v === undefined) return '';
+  const n = parseFloat(v);
+  return isNaN(n) ? '' : (n * 100).toFixed(0) + '%';
+}
+function statusBadge(v) {
+  if (!v) return '';
+  const cls = {paid:'success',pending:'warning',approved:'info',rejected:'danger'}[v.toLowerCase()] || 'secondary';
+  return `<span class="badge bg-${cls}">${v}</span>`;
+}
+function delBtn(onclick) {
+  return `<button class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:10px;line-height:1.4;" onclick="${onclick}">
+    <i class="bi bi-trash"></i></button>`;
+}
+function editBtn(onclick) {
+  return `<button class="btn btn-xs btn-outline-secondary py-0 px-1" style="font-size:10px;line-height:1.4;" onclick="${onclick}">
+    <i class="bi bi-pencil"></i></button>`;
+}
+
+// ── Stats (per-episode) ──────────────────────────────────────────────
+function updateStats() {
+  // collect all episodes present in tracker or invoices
+  const epSet = new Set([
+    ...allTracker.map(r => r.ep).filter(v => v != null),
+    ...allInvoices.map(r => r.episode).filter(v => v != null),
+  ]);
+  const episodes = [...epSet].sort((a,b) => a - b);
+
+  // totals across all eps
+  const totalVendors  = [...new Set(allTracker.map(r => r.vendor).filter(Boolean))].length;
+  const totalAwarded  = allTracker.reduce((s,r) => s + (r.tot_award||0), 0);
+  const totalPaid     = allTracker.reduce((s,r) => s + (r.paid||0), 0);
+  const totalPending  = allTracker.reduce((s,r) => s + (r.pending||0), 0);
+  const totalInvoices = allInvoices.length;
+
+  const container = document.getElementById('ep-stats-row');
+  let html = '';
+
+  // TOTAL card
+  html += `
+  <div style="background:#12152a;border:1px solid #2e3050;border-radius:6px;padding:6px 12px;min-width:160px;">
+    <div style="font-size:10px;color:#f0b429;font-weight:700;letter-spacing:.8px;margin-bottom:4px;">ALL EPS</div>
+    <div style="font-size:11px;color:#6870a0;line-height:1.7;">
+      Vendors: <strong class="text-light">${totalVendors}</strong><br>
+      Awarded: <strong style="color:#f0b429;">${fmt(totalAwarded)||'$0'}</strong><br>
+      Paid: <strong style="color:#52c46a;">${fmt(totalPaid)||'$0'}</strong><br>
+      Pending: <strong style="color:#4a9cf0;">${fmt(totalPending)||'$0'}</strong><br>
+      Invoices: <strong class="text-light">${totalInvoices}</strong>
+    </div>
+  </div>`;
+
+  // per-episode cards
+  for (const ep of episodes) {
+    const tRows   = allTracker.filter(r => r.ep == ep);
+    const iRows   = allInvoices.filter(r => r.episode == ep);
+    const vendors  = [...new Set(tRows.map(r => r.vendor).filter(Boolean))].length;
+    const awarded  = tRows.reduce((s,r) => s + (r.tot_award||0), 0);
+    const paid     = tRows.reduce((s,r) => s + (r.paid||0), 0);
+    const pending  = tRows.reduce((s,r) => s + (r.pending||0), 0);
+    html += `
+  <div style="background:#12152a;border:1px solid #2e3050;border-radius:6px;padding:6px 12px;min-width:150px;">
+    <div style="font-size:10px;color:#f0b429;font-weight:700;letter-spacing:.8px;margin-bottom:4px;">EP ${ep}</div>
+    <div style="font-size:11px;color:#6870a0;line-height:1.7;">
+      Vendors: <strong class="text-light">${vendors}</strong><br>
+      Awarded: <strong style="color:#f0b429;">${fmt(awarded)||'$0'}</strong><br>
+      Paid: <strong style="color:#52c46a;">${fmt(paid)||'$0'}</strong><br>
+      Pending: <strong style="color:#4a9cf0;">${fmt(pending)||'$0'}</strong><br>
+      Invoices: <strong class="text-light">${iRows.length}</strong>
+    </div>
+  </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ── Tax region lookup ─────────────────────────────────────────────────
+const TAX_REGIONS = {
+  'BC': { exchange: 0.73, sale_tax: 0.12, tax_rebate: 0.32 },
+  'UK': { exchange: 0.88, sale_tax: 0.20, tax_rebate: 0.39 },
+  'QC': { exchange: 1.45, sale_tax: 0.13, tax_rebate: 0.37 },
+  'ON': { exchange: 0.73, sale_tax: 0.13, tax_rebate: 0.34 },
+};
+function getRegionData(region) {
+  if (!region) return null;
+  const r = region.toUpperCase().trim();
+  if (TAX_REGIONS[r]) return TAX_REGIONS[r];
+  for (const key of Object.keys(TAX_REGIONS)) {
+    if (r.includes(key)) return TAX_REGIONS[key];
+  }
+  return null;
+}
+
+// ── Modal cascade ────────────────────────────────────────────────────
+function recalcModal(changedField) {
+  const g  = id => parseFloat(document.getElementById(id).value) || 0;
+  const s  = (id, v) => { document.getElementById(id).value = (v != null) ? +v.toFixed(2) : ''; };
+  const rd = getRegionData(document.getElementById('tm-region').value);
+
+  // asset_award or award_ep → tot_award
+  if (changedField === 'asset_award') {
+    s('tm-tot-award', g('tm-asset-award') + g('tm-award-ep'));
+    changedField = 'tot_award';
+  }
+
+  // tot_award → gross_usd, gross_local
+  if (changedField === 'tot_award') {
+    const tot = g('tm-tot-award');
+    s('tm-gross-usd',   tot);
+    s('tm-gross-local', rd ? tot / rd.exchange : tot);
+    changedField = 'gross_usd';
+  }
+
+  // gross_usd → sale_tax_amount (from region %)
+  if (changedField === 'gross_usd') {
+    if (rd) s('tm-sale-tax', g('tm-gross-usd') * rd.sale_tax);
+    changedField = 'sale_tax_amount';
+  }
+
+  // gross_usd + sale_tax → gross_plus_tax
+  if (changedField === 'sale_tax_amount') {
+    s('tm-gross-plus-tax', g('tm-gross-usd') + g('tm-sale-tax'));
+    changedField = 'gross_plus_tax';
+  }
+
+  // gross_usd × tax_reb → tax_rebate_amt
+  // net = gross_usd − tax_rebate_amt
+  // final = net + sale_tax_amount
+  if (changedField === 'gross_plus_tax' || changedField === 'tax_reb') {
+    const gUsd   = g('tm-gross-usd');
+    const rebAmt = gUsd * g('tm-tax-reb');
+    const net    = gUsd - rebAmt;
+    s('tm-tax-rebate-amt', rebAmt);
+    s('tm-net',   net);
+    s('tm-final', net + g('tm-sale-tax'));
+  }
+}
+
+// ── Tax chain cascade (inline table edits) ───────────────────────────
+// Correct chain:
+//   sale_tax_amount = gross_usd × region.sale_tax
+//   gross_plus_tax  = gross_usd + sale_tax_amount
+//   tax_rebate_amt  = gross_usd × tax_reb
+//   net_after_rebate= gross_usd − tax_rebate_amt
+//   final_price     = net_after_rebate + sale_tax_amount
+//   gross_local     = gross_usd / region.exchange
+function computeTaxCascade(merged, changedField) {
+  const derived = {};
+  const rd = getRegionData(merged.region);
+
+  // asset_award / award_ep → tot_award
+  if (changedField === 'asset_award' || changedField === 'award_ep') {
+    derived.tot_award = (merged.asset_award || 0) + (merged.award_ep || 0);
+    merged.tot_award  = derived.tot_award;
+    changedField = 'tot_award';
+  }
+
+  // tot_award → gross_usd, gross_local
+  if (changedField === 'tot_award') {
+    derived.gross_usd   = merged.tot_award || 0;
+    derived.gross_local = rd ? (merged.tot_award || 0) / rd.exchange : (merged.tot_award || 0);
+    merged.gross_usd    = derived.gross_usd;
+    merged.gross_local  = derived.gross_local;
+    changedField = 'gross_usd';
+  }
+
+  // gross_usd → sale_tax_amount (region-driven)
+  if (changedField === 'gross_usd' || changedField === 'region') {
+    if (rd) {
+      derived.sale_tax_amount = (merged.gross_usd || 0) * rd.sale_tax;
+      merged.sale_tax_amount  = derived.sale_tax_amount;
+      derived.gross_local     = derived.gross_local ?? (merged.gross_usd || 0) / rd.exchange;
+      merged.gross_local      = derived.gross_local;
+    }
+    changedField = 'sale_tax_amount';
+  }
+
+  // gross_usd + sale_tax → gross_plus_tax
+  if (changedField === 'sale_tax_amount') {
+    derived.gross_plus_tax = (merged.gross_usd || 0) + (merged.sale_tax_amount || 0);
+    merged.gross_plus_tax  = derived.gross_plus_tax;
+    changedField = 'gross_plus_tax';
+  }
+
+  // gross_usd × tax_reb → rebate; net = gross_usd − rebate; final = net + sale_tax
+  const chainTriggers = ['gross_plus_tax','tax_reb'];
+  if (chainTriggers.includes(changedField)) {
+    const gUsd   = merged.gross_usd         || 0;
+    const tReb   = merged.tax_reb           || 0;
+    const sTax   = merged.sale_tax_amount   || 0;
+    derived.tax_rebate_amt   = gUsd * tReb;
+    merged.tax_rebate_amt    = derived.tax_rebate_amt;
+    derived.net_after_rebate = gUsd - derived.tax_rebate_amt;
+    merged.net_after_rebate  = derived.net_after_rebate;
+    derived.final_price      = derived.net_after_rebate + sTax;
+    merged.final_price       = derived.final_price;
+  }
+
+  return derived;
+}
+
+async function cascadeTrackerRow(cell, field, val) {
+  const id   = cell.getRow().getData().id;
+  const data = cell.getRow().getData();
+  const merged = Object.assign({}, data, {[field]: val});
+
+  const derived = computeTaxCascade(merged, field);
+  const payload = Object.assign({[field]: val}, derived);
+
+  await fetch(`/api/vendortracker/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+
+  const localRow = allTracker.find(r => r.id === id);
+  if (localRow) Object.assign(localRow, payload);
+
+  // update cells in the table row
+  cell.getRow().update(derived);
+  updateStats();
+}
+
+// ── Inline save helper ───────────────────────────────────────────────
+const CASCADE_FIELDS = ['asset_award','award_ep','tot_award','gross_usd','sale_tax_amount','tax_reb','gross_plus_tax','region'];
+
+async function saveCellTracker(cell, field) {
+  const id  = cell.getRow().getData().id;
+  let   val = cell.getValue();
+  const numFields = ['ep','asset_award','award_ep','tot_award','paid','pending','remaining',
+                     'tax_reb','gross_local','gross_usd','sale_tax_amount','gross_plus_tax',
+                     'tax_rebate_amt','net_after_rebate','final_price'];
+  if (numFields.includes(field)) {
+    val = val === '' || val === null ? null : parseFloat(val);
+  }
+
+  if (CASCADE_FIELDS.includes(field)) {
+    await cascadeTrackerRow(cell, field, val);
+    return;
+  }
+
+  await fetch(`/api/vendortracker/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[field]: val})
+  });
+  const row = allTracker.find(r => r.id === id);
+  if (row) row[field] = val;
+  updateStats();
+}
+
+async function saveCellInvoice(cell, field) {
+  const id  = cell.getRow().getData().id;
+  let   val = cell.getValue();
+  if (field === 'amount' || field === 'episode') {
+    val = val === '' || val === null ? null : parseFloat(val);
+  }
+  await fetch(`/api/invoicelog/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[field]: val})
+  });
+  const row = allInvoices.find(r => r.id === id);
+  if (row) row[field] = val;
+  // if amount or status changed, reload tracker to show updated paid/pending/remaining
+  if (field === 'status' || field === 'amount') {
+    const tRes = await fetch('/api/vendortracker');
+    allTracker = await tRes.json();
+    if (trackerTable) trackerTable.setData(allTracker);
+  }
+  updateStats();
+}
+
+// ── Build tracker table ──────────────────────────────────────────────
+function buildTrackerTable(data) {
+  const inpStyle = 'background:#0d0f1c;color:#d0d8f0;border:1px solid #2e3050;';
+  function mkEdit(field) {
+    return { editor:'input', cellEdited: cell => saveCellTracker(cell, field) };
+  }
+  function mkNumEdit(field) {
+    return { editor:'number', cellEdited: cell => saveCellTracker(cell, field) };
+  }
+
+  const cols = [
+    { title:'',          field:'_actions', width:60, hozAlign:'center', headerSort:false,
+      formatter: c => {
+        const id = c.getRow().getData().id;
+        return editBtn(`editTracker(${id})`) + ' ' + delBtn(`deleteTracker(${id})`);
+      }
+    },
+    { title:'VENDOR', field:'vendor', width:110, ...mkEdit('vendor'),
+      formatter: c => `<b style="color:#f0b429;">${c.getValue()||''}</b>` },
+    { title:'REG',    field:'region', width:60,  hozAlign:'center', ...mkEdit('region'),
+      formatter: c => `<span style="color:#6870a0;">${c.getValue()||''}</span>` },
+    { title:'EP',     field:'ep',     width:55,  hozAlign:'center', ...mkNumEdit('ep'),
+      formatter: c => { const v=c.getValue(); return v ? `<a href="/ep/${v}" style="color:#f0b429;text-decoration:none;font-weight:600;">EP${v}</a>` : ''; } },
+    { title:'ASSET AWARD',  field:'asset_award', width:105, hozAlign:'right', ...mkNumEdit('asset_award'),
+      formatter: c => fmt(c.getValue()) },
+    { title:'AWARD EP',     field:'award_ep',    width:100, hozAlign:'right', ...mkNumEdit('award_ep'),
+      formatter: c => fmt(c.getValue()) },
+    { title:'TOT AWARD',    field:'tot_award',   width:110, hozAlign:'right', ...mkNumEdit('tot_award'),
+      formatter: c => { const v=c.getValue(); return v ? `<span style="color:#f0b429;font-weight:700;">${fmt(v)}</span>` : ''; } },
+    { title:'PAID',         field:'paid',        width:90,  hozAlign:'right', ...mkNumEdit('paid'),
+      formatter: c => { const v=c.getValue(); return v ? `<span style="color:#52c46a;font-weight:600;">${fmt(v)}</span>` : ''; } },
+    { title:'PENDING',      field:'pending',     width:90,  hozAlign:'right', ...mkNumEdit('pending'),
+      formatter: c => { const v=c.getValue(); return v ? `<span style="color:#4a9cf0;">${fmt(v)}</span>` : ''; } },
+    { title:'REMAINING',    field:'remaining',   width:100, hozAlign:'right', ...mkNumEdit('remaining'),
+      formatter: c => {
+        const v=c.getValue(); if (v===null||v===undefined) return '';
+        const n=parseFloat(v), color=n>0?'#e05252':(n<0?'#52c46a':'#6870a0');
+        return `<span style="color:${color};font-weight:600;">${fmt(v)}</span>`;
+      }
+    },
+    { title:'TAX REB',       field:'tax_reb',         width:75,  hozAlign:'right', ...mkNumEdit('tax_reb'),
+      formatter: c => fmtPct(c.getValue()) },
+    { title:'GROSS (local)', field:'gross_local',      width:110, hozAlign:'right', ...mkNumEdit('gross_local'),
+      formatter: c => fmt(c.getValue()) },
+    { title:'GROSS (USD)',   field:'gross_usd',        width:100, hozAlign:'right', ...mkNumEdit('gross_usd'),
+      formatter: c => fmt(c.getValue()) },
+    { title:'SALE TAX',      field:'sale_tax_amount',  width:90,  hozAlign:'right', ...mkNumEdit('sale_tax_amount'),
+      formatter: c => fmt(c.getValue()) },
+    { title:'GROSS+TAX',     field:'gross_plus_tax',   width:100, hozAlign:'right', ...mkNumEdit('gross_plus_tax'),
+      formatter: c => fmt(c.getValue()) },
+    { title:'TAX REBATE',    field:'tax_rebate_amt',   width:100, hozAlign:'right', ...mkNumEdit('tax_rebate_amt'),
+      formatter: c => fmt(c.getValue()) },
+    { title:'NET (after rebate)', field:'net_after_rebate', width:130, hozAlign:'right', ...mkNumEdit('net_after_rebate'),
+      formatter: c => { const v=c.getValue(); return v ? `<span style="color:#52c46a;font-weight:600;">${fmt(v)}</span>` : ''; } },
+    { title:'FINAL PRICE',   field:'final_price',  width:110, hozAlign:'right', ...mkNumEdit('final_price'),
+      formatter: c => { const v=c.getValue(); return v ? `<span style="color:#f0b429;font-weight:700;">${fmt(v)}</span>` : ''; } },
+  ];
+
+  if (!trackerTable) {
+    trackerTable = new Tabulator('#tracker-table', {
+      data: data, columns: cols, layout: 'fitData',
+      height: 'calc(100vh - 300px)',
+      placeholder: 'No vendor tracking data — click Add Row or import Excel',
+    });
+  } else {
+    trackerTable.setColumns(cols);
+    trackerTable.setData(data);
+  }
+}
+
+// ── Build invoice table ──────────────────────────────────────────────
+function buildInvoiceTable(data) {
+  function mkEdit(field) {
+    return { editor:'input', cellEdited: cell => saveCellInvoice(cell, field) };
+  }
+
+  const cols = [
+    { title:'',         field:'_actions', width:60, hozAlign:'center', headerSort:false,
+      formatter: c => {
+        const id = c.getRow().getData().id;
+        return editBtn(`editInvoice(${id})`) + ' ' + delBtn(`deleteInvoice(${id})`);
+      }
+    },
+    { title:'VENDOR',      field:'vendor',       width:110, ...mkEdit('vendor'),
+      formatter: c => `<b style="color:#f0b429;">${c.getValue()||''}</b>` },
+    { title:'EP',          field:'episode',      width:55,  hozAlign:'center',
+      editor:'number', cellEdited: cell => saveCellInvoice(cell,'episode'),
+      formatter: c => { const v=c.getValue(); return v ? `<a href="/ep/${v}" style="color:#f0b429;text-decoration:none;font-weight:600;">EP${v}</a>` : ''; } },
+    { title:'INV #',       field:'inv_num',      width:90,  ...mkEdit('inv_num') },
+    { title:'INV DATE',    field:'inv_date',     width:105, hozAlign:'center', ...mkEdit('inv_date'),
+      formatter: c => `<span style="color:#6870a0;">${c.getValue()||''}</span>` },
+    { title:'AMOUNT',      field:'amount',       width:100, hozAlign:'right',
+      editor:'number', cellEdited: cell => saveCellInvoice(cell,'amount'),
+      formatter: c => { const v=c.getValue(); return v ? `<span style="color:#f0b429;font-weight:700;">${fmt(v)}</span>` : ''; } },
+    { title:'STATUS',      field:'status',       width:100, hozAlign:'center',
+      editor:'list',
+      editorParams:{ values:['','Pending','Approved','Paid','Rejected'], elementAttributes:{style:'background:#1a1d35;color:#d0d8f0;'} },
+      cellEdited: cell => saveCellInvoice(cell,'status'),
+      formatter: c => statusBadge(c.getValue()) },
+    { title:'APPROVE DATE',field:'approve_date', width:115, hozAlign:'center', ...mkEdit('approve_date'),
+      formatter: c => `<span style="color:#6870a0;">${c.getValue()||''}</span>` },
+    { title:'NOTES',       field:'notes',        width:220, ...mkEdit('notes'),
+      formatter: c => {
+        const v=c.getValue();
+        return v ? `<span style="color:#9ba8c0;">${v}</span>`
+                 : `<span style="color:#2a2e50;font-style:italic;font-size:10px;">click to edit</span>`;
+      }
+    },
+  ];
+
+  if (!invoiceTable) {
+    invoiceTable = new Tabulator('#invoice-table', {
+      data: data, columns: cols, layout: 'fitData',
+      height: 'calc(100vh - 300px)',
+      placeholder: 'No invoices — click Add Invoice or import Excel',
+    });
+  } else {
+    invoiceTable.setColumns(cols);
+    invoiceTable.setData(data);
+  }
+}
+
+// ── Tab switching ────────────────────────────────────────────────────
+function showTab(name) {
+  document.getElementById('pane-tracker').style.display = name === 'tracker' ? '' : 'none';
+  document.getElementById('pane-invoice').style.display = name === 'invoice' ? '' : 'none';
+  document.getElementById('tab-tracker').classList.toggle('active', name === 'tracker');
+  document.getElementById('tab-invoice').classList.toggle('active', name === 'invoice');
+  if (name === 'tracker' && trackerTable) trackerTable.redraw(true);
+  if (name === 'invoice' && invoiceTable) invoiceTable.redraw(true);
+}
+
+// ── Load data ────────────────────────────────────────────────────────
+async function loadData() {
+  const errEl = document.getElementById('err-msg');
+  errEl.style.display = 'none';
+  try {
+    const [tRes, iRes] = await Promise.all([
+      fetch('/api/vendortracker'),
+      fetch('/api/invoicelog'),
+    ]);
+    allTracker  = await tRes.json();
+    allInvoices = await iRes.json();
+    updateStats();
+    buildTrackerTable(allTracker);
+    buildInvoiceTable(allInvoices);
+  } catch(e) {
+    errEl.textContent = 'Error loading data: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// ── Tracker CRUD ─────────────────────────────────────────────────────
+function clearTrackerModal() {
+  ['tm-id','tm-vendor','tm-region','tm-ep','tm-tax-reb',
+   'tm-asset-award','tm-award-ep','tm-tot-award',
+   'tm-paid','tm-pending','tm-remaining',
+   'tm-gross-local','tm-gross-usd','tm-sale-tax',
+   'tm-gross-plus-tax','tm-tax-rebate-amt','tm-net','tm-final']
+  .forEach(id => document.getElementById(id).value = '');
+}
+
+function openAddTracker() {
+  clearTrackerModal();
+  document.getElementById('tm-title').innerHTML = '<i class="bi bi-plus-lg me-2"></i>Add Vendor Tracking Row';
+  new bootstrap.Modal(document.getElementById('trackerModal')).show();
+}
+
+function editTracker(id) {
+  const row = allTracker.find(r => r.id === id);
+  if (!row) return;
+  clearTrackerModal();
+  document.getElementById('tm-title').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Vendor Tracking Row';
+  const set = (el, v) => document.getElementById(el).value = (v !== null && v !== undefined) ? v : '';
+  set('tm-id',            row.id);
+  set('tm-vendor',        row.vendor);
+  set('tm-region',        row.region);
+  set('tm-ep',            row.ep);
+  set('tm-tax-reb',       row.tax_reb);
+  set('tm-asset-award',   row.asset_award);
+  set('tm-award-ep',      row.award_ep);
+  set('tm-tot-award',     row.tot_award);
+  set('tm-paid',          row.paid);
+  set('tm-pending',       row.pending);
+  set('tm-remaining',     row.remaining);
+  set('tm-gross-local',   row.gross_local);
+  set('tm-gross-usd',     row.gross_usd);
+  set('tm-sale-tax',      row.sale_tax_amount);
+  set('tm-gross-plus-tax',row.gross_plus_tax);
+  set('tm-tax-rebate-amt',row.tax_rebate_amt);
+  set('tm-net',           row.net_after_rebate);
+  set('tm-final',         row.final_price);
+  new bootstrap.Modal(document.getElementById('trackerModal')).show();
+}
+
+function getTrackerPayload() {
+  const n = id => { const v=document.getElementById(id).value; return v===''?null:parseFloat(v); };
+  const s = id => document.getElementById(id).value.trim();
+  return {
+    vendor:          s('tm-vendor'),
+    region:          s('tm-region'),
+    ep:              n('tm-ep'),
+    tax_reb:         n('tm-tax-reb'),
+    asset_award:     n('tm-asset-award'),
+    award_ep:        n('tm-award-ep'),
+    tot_award:       n('tm-tot-award'),
+    paid:            n('tm-paid') || 0,
+    pending:         n('tm-pending') || 0,
+    remaining:       n('tm-remaining'),
+    gross_local:     n('tm-gross-local'),
+    gross_usd:       n('tm-gross-usd'),
+    sale_tax_amount: n('tm-sale-tax'),
+    gross_plus_tax:  n('tm-gross-plus-tax'),
+    tax_rebate_amt:  n('tm-tax-rebate-amt'),
+    net_after_rebate:n('tm-net'),
+    final_price:     n('tm-final'),
+  };
+}
+
+async function saveTracker() {
+  const id = document.getElementById('tm-id').value;
+  const payload = getTrackerPayload();
+  if (!payload.vendor) { alert('Vendor name required'); return; }
+
+  if (id) {
+    await fetch(`/api/vendortracker/${id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  } else {
+    await fetch('/api/vendortracker', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  }
+  bootstrap.Modal.getInstance(document.getElementById('trackerModal')).hide();
+  trackerTable = null;
+  await loadData();
+}
+
+async function deleteTracker(id) {
+  const row = allTracker.find(r => r.id === id);
+  const label = row ? `${row.vendor}${row.ep ? ' EP'+row.ep : ''}` : `row ${id}`;
+  if (!confirm(`Delete tracker row: ${label}?`)) return;
+  await fetch(`/api/vendortracker/${id}`, {method:'DELETE'});
+  allTracker = allTracker.filter(r => r.id !== id);
+  trackerTable.setData(allTracker);
+  updateStats();
+}
+
+// ── Invoice CRUD ─────────────────────────────────────────────────────
+function clearInvoiceModal() {
+  ['im-id','im-vendor','im-episode','im-inv-num','im-inv-date',
+   'im-amount','im-approve-date','im-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('im-status').value = '';
+}
+
+function openAddInvoice() {
+  clearInvoiceModal();
+  document.getElementById('im-title').innerHTML = '<i class="bi bi-plus-lg me-2"></i>Add Invoice';
+  new bootstrap.Modal(document.getElementById('invoiceModal')).show();
+}
+
+function editInvoice(id) {
+  const row = allInvoices.find(r => r.id === id);
+  if (!row) return;
+  clearInvoiceModal();
+  document.getElementById('im-title').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Invoice';
+  const set = (el, v) => document.getElementById(el).value = (v !== null && v !== undefined) ? v : '';
+  set('im-id',           row.id);
+  set('im-vendor',       row.vendor);
+  set('im-episode',      row.episode);
+  set('im-inv-num',      row.inv_num);
+  set('im-inv-date',     row.inv_date);
+  set('im-amount',       row.amount);
+  document.getElementById('im-status').value = row.status || '';
+  set('im-approve-date', row.approve_date);
+  set('im-notes',        row.notes);
+  new bootstrap.Modal(document.getElementById('invoiceModal')).show();
+}
+
+async function saveInvoice() {
+  const id = document.getElementById('im-id').value;
+  const vendor = document.getElementById('im-vendor').value.trim();
+  if (!vendor) { alert('Vendor name required'); return; }
+  const ep  = document.getElementById('im-episode').value;
+  const amt = document.getElementById('im-amount').value;
+  const payload = {
+    vendor,
+    episode:      ep  === '' ? null : parseInt(ep),
+    inv_num:      document.getElementById('im-inv-num').value.trim(),
+    inv_date:     document.getElementById('im-inv-date').value,
+    amount:       amt === '' ? 0    : parseFloat(amt),
+    status:       document.getElementById('im-status').value,
+    approve_date: document.getElementById('im-approve-date').value,
+    notes:        document.getElementById('im-notes').value.trim(),
+  };
+
+  if (id) {
+    await fetch(`/api/invoicelog/${id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  } else {
+    await fetch('/api/invoicelog', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  }
+  bootstrap.Modal.getInstance(document.getElementById('invoiceModal')).hide();
+  invoiceTable = null;
+  await loadData();
+}
+
+async function deleteInvoice(id) {
+  const row = allInvoices.find(r => r.id === id);
+  const label = row ? `${row.vendor} ${row.inv_num||''} EP${row.episode}` : `row ${id}`;
+  if (!confirm(`Delete invoice: ${label}?`)) return;
+  await fetch(`/api/invoicelog/${id}`, {method:'DELETE'});
+  allInvoices = allInvoices.filter(r => r.id !== id);
+  invoiceTable.setData(allInvoices);
+  updateStats();
+}
+
+// ── Import ───────────────────────────────────────────────────────────
+function openImport() {
+  document.getElementById('imp-file').value = '';
+  document.getElementById('imp-status').textContent = '';
+  new bootstrap.Modal(document.getElementById('importModal')).show();
+}
+
+async function doImport() {
+  const file = document.getElementById('imp-file').files[0];
+  if (!file) { alert('Select a file first'); return; }
+  const status = document.getElementById('imp-status');
+  status.style.color = '#aaa';
+  status.textContent = 'Importing…';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('mode', document.getElementById('imp-mode').value);
+  const res  = await fetch('/api/vendortracker/import', {method:'POST', body:fd});
+  const data = await res.json();
+  if (data.error) {
+    status.style.color = '#e05252';
+    status.textContent = 'Error: ' + data.error;
+    return;
+  }
+  status.style.color = '#52c46a';
+  status.textContent = `Imported ${data.tracker_inserted} tracking rows, ${data.invoice_inserted} invoices.`;
+  setTimeout(() => {
+    bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+    trackerTable = null; invoiceTable = null;
+    loadData();
+  }, 800);
+}
+
+async function clearData() {
+  if (!confirm('Clear ALL vendor tracker and invoice data?')) return;
+  await fetch('/api/vendortracker/clear', {method:'DELETE'});
+  trackerTable = null; invoiceTable = null;
+  allTracker = []; allInvoices = [];
+  loadData();
+}
+
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+
+<style>
+.nav-tabs .nav-link { color: #6870a0; border-color: transparent; }
+.nav-tabs .nav-link.active { color: #f0b429; background: #12152a; border-color: #2e3050 #2e3050 #12152a; }
+.nav-tabs .nav-link:hover { color: #d0d8f0; border-color: transparent; }
+.vt-input { background:#1a1d35!important; border-color:#2e3050!important; color:#d0d8f0!important; }
+.vt-input:focus { border-color:#4a6080!important; box-shadow:none!important; }
+#tracker-table .tabulator, #invoice-table .tabulator { border-color: #1e2240; }
+#tracker-table .tabulator-cell, #invoice-table .tabulator-cell { padding: 3px 6px; font-size: 12px; }
+#tracker-table .tabulator-col-title, #invoice-table .tabulator-col-title { font-size: 10px; letter-spacing:.7px; text-transform:uppercase; }
+#tracker-table .tabulator-row:hover .tabulator-cell,
+#invoice-table .tabulator-row:hover .tabulator-cell { background: #12152a !important; }
+.tax-row td { padding: 5px 10px; border-right: 1px solid #1e2240; border-top: 1px solid #1e2240; color: #d0d8f0; }
+.tax-row:hover td { background: #0d0f1c; }
+.tr-region { font-weight: 700; color: #f0b429 !important; }
+.tr-exchange { color: #52c46a !important; }
+.tr-saletax, .tr-rebate { color: #4a9cf0 !important; }
+.tr-code { color: #9ba8c0 !important; font-style: italic; }
+</style>
+{% endblock %}

@@ -1,0 +1,682 @@
+{% extends "base.html" %}
+{% block title %}Budget Scenario — VFX Budget System{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center mb-3 gap-3 flex-wrap">
+  <h5 class="mb-0 fw-bold text-warning">
+    <i class="bi bi-graph-up-arrow me-2"></i>BUDGET SCENARIO &amp; FORECAST
+  </h5>
+  <div class="ms-auto">
+    <button class="btn btn-sm btn-outline-secondary" onclick="exportEPCSV()">
+      <i class="bi bi-download me-1"></i>Export EP CSV
+    </button>
+  </div>
+</div>
+
+<div id="page-err" class="text-danger small mb-2" style="display:none;"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PANEL 1 — TAX SCENARIO COMPARISON
+     ══════════════════════════════════════════════════════════ -->
+<div class="sc-panel mb-3">
+  <div class="sc-panel-header" onclick="togglePanel('sc-s1')">
+    <span><i class="bi bi-sliders me-2"></i>TAX SCENARIO COMPARISON</span>
+    <span class="sc-toggle">▲</span>
+  </div>
+  <div id="sc-s1">
+    <!-- Selectors -->
+    <div class="d-flex align-items-center gap-4 px-3 py-2 flex-wrap" style="border-bottom:1px solid #1e2240;background:#0d0f1c;">
+      <div class="d-flex align-items-center gap-2">
+        <span style="font-size:10px;color:#6870a0;letter-spacing:.6px;font-weight:600;">EPISODE</span>
+        <select id="sc-ep-sel" class="sc-inp" style="width:85px;"
+                onchange="localStorage.setItem('sc_ep',this.value); renderScenarios()"></select>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span style="font-size:10px;color:#6870a0;letter-spacing:.6px;font-weight:600;">SCENARIO</span>
+        <select id="sc-tier-sel" class="sc-inp" style="width:150px;"
+                onchange="localStorage.setItem('sc_tier',this.value); renderScenarios()">
+          <option value="0">Conservative</option>
+          <option value="1">Expected</option>
+          <option value="2">Optimistic</option>
+        </select>
+      </div>
+      <span id="sc-mix-btn-wrap"></span>
+    </div>
+
+    <!-- Result cards -->
+    <div id="sc-result" class="d-flex gap-5 px-4 py-3 flex-wrap align-items-end"></div>
+
+    <!-- Region mix summary bar -->
+    <div id="sc-mix-bar" class="px-4 pb-3" style="font-size:10px;color:#4a5080;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PANEL 2 — EP FORECAST
+     ══════════════════════════════════════════════════════════ -->
+<div class="sc-panel mb-3">
+  <div class="sc-panel-header" onclick="togglePanel('sc-s2')">
+    <span><i class="bi bi-table me-2"></i>EP FORECAST</span>
+    <span class="sc-toggle">▲</span>
+  </div>
+  <div id="sc-s2">
+    <div class="px-3 pt-2 pb-1" style="font-size:10px;color:#4a5080;">
+      Global Rebate % is computed from Region Mix · Eligible % = 100% − Global Rebate % · Net = Budget − Rebate$
+      <span style="color:#f0b429;margin-left:12px;">Yellow = auto-calculated</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="sc-table" id="epf-table">
+        <thead>
+          <tr>
+            <th style="width:55px;">EP</th>
+            <th style="width:90px;">CONTINGENCY %</th>
+            <th style="width:120px;">BUDGET</th>
+            <th style="width:120px;">AWARD (to Date)</th>
+            <th style="width:110px;">ELIGIBLE $</th>
+            <th style="width:155px;" class="sc-auto">REGION MIX → GLOBAL %</th>
+            <th style="width:110px;" class="sc-auto">REBATE $</th>
+            <th style="width:120px;" class="sc-auto">NET</th>
+            <th style="width:100px;" class="sc-auto">ELIGIBLE %</th>
+            <th style="width:130px;" class="sc-auto">TOT NET + CONT</th>
+            <th style="width:110px;" class="sc-auto">CONTIN $</th>
+            <th style="width:110px;" class="sc-auto">OVERAGE</th>
+            <th style="width:210px;" class="sc-auto">STATUS</th>
+            <th style="width:180px;">NOTES</th>
+          </tr>
+        </thead>
+        <tbody id="epf-body">
+          <tr><td colspan="14" class="text-center text-muted py-2" style="font-size:11px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="epf-totals" class="d-flex gap-4 mt-2 px-2 flex-wrap"
+         style="font-size:11px;color:#6870a0;border-top:1px solid #1e2240;padding-top:8px;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PANEL 3 — VENDOR FORECAST
+     ══════════════════════════════════════════════════════════ -->
+<div class="sc-panel mb-3">
+  <div class="sc-panel-header" onclick="togglePanel('sc-s3')">
+    <span><i class="bi bi-building me-2"></i>VENDOR FORECAST</span>
+    <div class="d-flex align-items-center gap-3">
+      <button class="btn btn-xs btn-outline-success py-0 px-2" style="font-size:10px;"
+              onclick="event.stopPropagation(); addVendorRow()">
+        <i class="bi bi-plus-lg me-1"></i>Add Vendor
+      </button>
+      <span class="sc-toggle">▲</span>
+    </div>
+  </div>
+  <div id="sc-s3">
+    <div style="overflow-x:auto;">
+      <table class="sc-table" id="vf-table">
+        <thead>
+          <tr>
+            <th style="width:130px;">VENDOR</th>
+            <th style="width:65px;">EP</th>
+            <th style="width:120px;">GROSS (Local $)</th>
+            <th style="width:120px;">GROSS (USD)</th>
+            <th style="width:80px;">REGION</th>
+            <th style="width:90px;">ELIGIBLE %</th>
+            <th style="width:90px;">REBATE %</th>
+            <th style="width:110px;" class="sc-auto">ELIGIBLE $</th>
+            <th style="width:110px;" class="sc-auto">REBATE $</th>
+            <th style="width:120px;" class="sc-auto">NET</th>
+            <th style="width:160px;">NOTES</th>
+            <th style="width:38px;"></th>
+          </tr>
+        </thead>
+        <tbody id="vf-body">
+          <tr><td colspan="12" class="text-center text-muted py-2" style="font-size:11px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="vf-totals" class="d-flex gap-4 mt-2 px-2 flex-wrap"
+         style="font-size:11px;color:#6870a0;border-top:1px solid #1e2240;padding-top:8px;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     REGION MIX MODAL
+     ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="rmmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+    <div class="modal-content border" style="background:#0d0f1c;border-color:#2e3050!important;">
+      <div class="modal-header border-secondary py-2">
+        <h6 class="modal-title text-warning" id="rmm-title">
+          <i class="bi bi-globe me-2"></i>Region Mix
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-3">
+        <div id="rmm-regions" class="d-flex flex-column gap-2"></div>
+        <div class="mt-3 pt-2" style="border-top:1px solid #2e3050;">
+          <div class="d-flex justify-content-between align-items-center" style="font-size:11px;">
+            <span id="rmm-sum-label" style="color:#6870a0;">
+              Spend Total: <strong id="rmm-sum" style="color:#d0d8f0;">0</strong>%
+            </span>
+            <span style="color:#6870a0;">
+              Weighted Rebate: <strong id="rmm-rate" style="color:#52c46a;font-size:13px;">0.00%</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary py-2">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-warning btn-sm" onclick="saveRegionMix()">
+          <i class="bi bi-check-lg me-1"></i>Apply
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+let epForecast = [];
+let vendors    = [];
+let scenarios  = [];   // 3 rows from budget_scenario (one per tier)
+
+// ── Region Tax Rates constant ─────────────────────────────────────────────────
+const REGION_TAX_RATES = [
+  { id: 'BC',  name: 'BC',  rate: 0.28  },
+  { id: 'QC',  name: 'QC',  rate: 0.20  },
+  { id: 'ON',  name: 'ON',  rate: 0.215 },
+  { id: 'AB',  name: 'AB',  rate: 0.22  },
+  { id: 'UK',  name: 'UK',  rate: 0.25  },
+  { id: 'AUS', name: 'AUS', rate: 0.30  },
+];
+
+const SCENARIO_TIERS = [
+  { name: 'Conservative', color: '#4a9cf0', fixedGlobal: null  },  // auto from EP Forecast
+  { name: 'Expected',     color: '#f0b429', fixedGlobal: 0.31  },  // fixed 31%
+  { name: 'Optimistic',   color: '#52c46a', fixedGlobal: 0.37  },  // fixed 37%
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmt$ = v => {
+  const n = parseFloat(v);
+  if (isNaN(n) || v === null || v === undefined || v === '') return '—';
+  return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+};
+const fmtPct = v => isNaN(parseFloat(v)) ? '—' : (parseFloat(v)*100).toFixed(1) + '%';
+
+function parseRegionMix(str) {
+  try { return JSON.parse(str || '[]') || []; } catch { return []; }
+}
+
+// Weighted Global Rebate % = Σ(region.rate × spendPct) / 100
+function computeGlobalRebate(regionMix) {
+  if (!regionMix || !regionMix.length) return 0;
+  return regionMix.reduce((sum, r) => {
+    const region = REGION_TAX_RATES.find(x => x.id === r.id);
+    return region ? sum + (region.rate * (r.spendPct || 0) / 100) : sum;
+  }, 0);
+}
+
+function mixSummaryText(regionMix) {
+  if (!regionMix || !regionMix.length) return 'No region set';
+  return regionMix.map(r => `${r.id} ${r.spendPct}%`).join(' / ');
+}
+
+function derived(val, color='#f0b429') {
+  return `<span style="color:${color};font-weight:600;">${fmt$(val)}</span>`;
+}
+
+function inp(val, type, onchange, extra='') {
+  const v = (val !== null && val !== undefined) ? val : '';
+  if (type === 'text')
+    return `<input type="text" class="sc-inp" value="${String(v).replace(/"/g,'&quot;')}" ${extra} onchange="${onchange}">`;
+  if (type === 'pct')
+    return `<input type="number" class="sc-inp sc-inp-pct" value="${v !== '' ? parseFloat(v)*100 : ''}" step="0.1" min="0" max="100" ${extra} onchange="${onchange}"> <span style="color:#6870a0;font-size:10px;">%</span>`;
+  return `<input type="number" class="sc-inp" value="${v}" step="any" ${extra} onchange="${onchange}">`;
+}
+
+// ── Panel toggle ──────────────────────────────────────────────────────────────
+function togglePanel(id) {
+  const el   = document.getElementById(id);
+  const hdr  = el.previousElementSibling;
+  const icon = hdr.querySelector('.sc-toggle');
+  const hide = el.style.display !== 'none';
+  el.style.display = hide ? 'none' : '';
+  icon.textContent = hide ? '▼' : '▲';
+}
+
+const _timers = {};
+function debounce(key, fn, ms=600) {
+  clearTimeout(_timers[key]);
+  _timers[key] = setTimeout(fn, ms);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// REGION MIX MODAL
+// ═══════════════════════════════════════════════════════════════════════
+let rmmCallback    = null;
+let rmmCurrentMix  = [];
+
+function openRegionMixModal(title, currentMix, callback) {
+  rmmCallback   = callback;
+  rmmCurrentMix = JSON.parse(JSON.stringify(currentMix || []));
+  document.getElementById('rmm-title').innerHTML = `<i class="bi bi-globe me-2"></i>${title}`;
+  renderRMMRegions();
+  new bootstrap.Modal(document.getElementById('rmmModal')).show();
+}
+
+function renderRMMRegions() {
+  document.getElementById('rmm-regions').innerHTML = REGION_TAX_RATES.map(region => {
+    const existing = rmmCurrentMix.find(r => r.id === region.id);
+    const checked  = !!existing;
+    const spendPct = existing ? existing.spendPct : '';
+    return `
+    <div class="d-flex align-items-center gap-3" style="font-size:12px;">
+      <input type="checkbox" id="rmm-chk-${region.id}" ${checked ? 'checked' : ''}
+             onchange="rmmToggle('${region.id}',this.checked)"
+             style="width:15px;height:15px;cursor:pointer;accent-color:#f0b429;">
+      <label for="rmm-chk-${region.id}"
+             style="width:45px;color:#d0d8f0;font-weight:700;cursor:pointer;">${region.name}</label>
+      <span style="color:#52c46a;width:45px;font-size:11px;">${(region.rate*100).toFixed(1)}% rebate</span>
+      <input type="number" id="rmm-pct-${region.id}" class="sc-inp sc-inp-pct"
+             value="${spendPct}" placeholder="0" min="0" max="100" step="1"
+             style="${checked ? '' : 'opacity:0.35;pointer-events:none;'}"
+             oninput="rmmUpdatePct('${region.id}',this.value)">
+      <span style="color:#6870a0;font-size:10px;">% of spend</span>
+    </div>`;
+  }).join('');
+  updateRMMTotal();
+}
+
+function rmmToggle(id, checked) {
+  if (checked) {
+    if (!rmmCurrentMix.find(r => r.id === id)) rmmCurrentMix.push({ id, spendPct: 0 });
+  } else {
+    rmmCurrentMix = rmmCurrentMix.filter(r => r.id !== id);
+  }
+  renderRMMRegions();
+}
+
+function rmmUpdatePct(id, val) {
+  const entry = rmmCurrentMix.find(r => r.id === id);
+  if (entry) entry.spendPct = parseFloat(val) || 0;
+  updateRMMTotal();
+}
+
+function updateRMMTotal() {
+  const total = rmmCurrentMix.reduce((s, r) => s + (r.spendPct || 0), 0);
+  const rate  = computeGlobalRebate(rmmCurrentMix);
+  const valid = Math.abs(total - 100) < 0.01;
+  document.getElementById('rmm-sum').textContent      = total.toFixed(1);
+  document.getElementById('rmm-rate').textContent     = (rate * 100).toFixed(2) + '%';
+  const lbl = document.getElementById('rmm-sum-label');
+  lbl.style.color = total > 100 ? '#e05252' : (valid ? '#52c46a' : '#f0b429');
+}
+
+function saveRegionMix() {
+  const total = rmmCurrentMix.reduce((s, r) => s + (r.spendPct || 0), 0);
+  if (rmmCurrentMix.length > 0 && Math.abs(total - 100) > 0.5) {
+    alert(`Spend % must sum to 100%  (currently ${total.toFixed(1)}%)`);
+    return;
+  }
+  if (rmmCallback) rmmCallback([...rmmCurrentMix]);
+  bootstrap.Modal.getInstance(document.getElementById('rmmModal')).hide();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 1 — TAX SCENARIO COMPARISON
+// ═══════════════════════════════════════════════════════════════════════
+function populateEPSelector() {
+  const sel     = document.getElementById('sc-ep-sel');
+  const savedEp = localStorage.getItem('sc_ep') || (epForecast[0]?.ep);
+  sel.innerHTML = epForecast.map(e =>
+    `<option value="${e.ep}" ${e.ep == savedEp ? 'selected' : ''}>EP ${e.ep}</option>`
+  ).join('');
+  const savedTier = localStorage.getItem('sc_tier') || '0';
+  document.getElementById('sc-tier-sel').value = savedTier;
+}
+
+function getActiveScenarioRow() {
+  const idx = parseInt(document.getElementById('sc-tier-sel').value) || 0;
+  const name = SCENARIO_TIERS[idx].name;
+  return scenarios.find(s => s.scenario_type === name) || null;
+}
+
+function renderScenarios() {
+  const ep    = parseInt(document.getElementById('sc-ep-sel').value) || null;
+  const idx   = parseInt(document.getElementById('sc-tier-sel').value) || 0;
+  const tier  = SCENARIO_TIERS[idx];
+  const epRow = epForecast.find(e => e.ep == ep);
+  const budget = epRow ? (epRow.budget || 0) : 0;
+
+  // Determine global rebate % by tier
+  let globalReb, sourceLabel;
+  if (tier.fixedGlobal === null) {
+    // Conservative: auto-linked to EP Forecast region mix
+    const mix = parseRegionMix(epRow?.region_mix || '[]');
+    globalReb   = computeGlobalRebate(mix);
+    sourceLabel = mix.length
+      ? `<span style="color:#52c46a;">[EP Forecast]</span> Region Mix: ${mix.map(r => {
+          const rd = REGION_TAX_RATES.find(x => x.id === r.id);
+          return `<span style="color:#d0d8f0;font-weight:600;">${r.id}</span> ${r.spendPct}% <span style="color:#52c46a;">(${rd ? (rd.rate*100).toFixed(1)+'%' : ''})</span>`;
+        }).join(' &nbsp;/&nbsp; ')}`
+      : '<span style="color:#3a4060;">No region mix on this EP — set it in EP Forecast first</span>';
+  } else {
+    // Expected / Optimistic: fixed hardcoded global %
+    globalReb   = tier.fixedGlobal;
+    sourceLabel = `<span style="color:${tier.color};">[Fixed Rate]</span> Global Rebate locked at <strong style="color:${tier.color};">${(tier.fixedGlobal*100).toFixed(0)}%</strong>`;
+  }
+
+  const eligible = 1 - globalReb;
+  const rebate   = budget * globalReb;
+  const net      = budget - rebate;
+  const hasData  = globalReb > 0;
+
+  // Button: Conservative shows auto-link badge, others show locked badge
+  const btnWrap = document.getElementById('sc-mix-btn-wrap');
+  btnWrap.innerHTML = tier.fixedGlobal === null
+    ? `<span style="font-size:10px;color:#52c46a;border:1px solid #1a3a2a;border-radius:4px;padding:2px 8px;">
+         <i class="bi bi-link-45deg me-1"></i>Auto-linked to EP Forecast
+       </span>`
+    : `<span style="font-size:10px;color:${tier.color};border:1px solid #2e3050;border-radius:4px;padding:2px 8px;">
+         <i class="bi bi-lock me-1"></i>Fixed ${(tier.fixedGlobal*100).toFixed(0)}%
+       </span>`;
+
+  const stat = (label, value, color) => `
+    <div style="min-width:110px;">
+      <div style="font-size:9px;color:#6870a0;letter-spacing:.7px;font-weight:600;margin-bottom:4px;">${label}</div>
+      <div style="font-size:16px;font-weight:700;color:${color};">${value}</div>
+    </div>`;
+
+  document.getElementById('sc-result').innerHTML = `
+    ${stat('SCENARIO',   `<span style="font-size:13px;">${tier.name}</span>`, tier.color)}
+    <div style="width:1px;background:#2e3050;align-self:stretch;"></div>
+    ${stat('EP BUDGET',  budget ? fmt$(budget)            : '—', '#d0d8f0')}
+    ${stat('GLOBAL %',   hasData ? fmtPct(globalReb)      : '—', tier.color)}
+    ${stat('ELIGIBLE %', hasData ? fmtPct(eligible)       : '—', '#d0d8f0')}
+    ${stat('REBATE $',   budget && hasData ? fmt$(rebate) : '—', '#e05252')}
+    ${stat('NET COST',   budget && hasData ? fmt$(net)    : '—', tier.color)}`;
+
+  document.getElementById('sc-mix-bar').innerHTML = sourceLabel;
+}
+
+async function ensureScenarioRows() {
+  if (!scenarios.length) {
+    for (const tier of SCENARIO_TIERS) {
+      const res  = await fetch('/api/budget_scenario', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ scenario_type: tier.name, ep: 101, region_mix: '[]' })
+      });
+      const data = await res.json();
+      scenarios.push({ id: data.id, scenario_type: tier.name, ep: 101, region_mix: '[]', tax_pct:0, eligible_pct:0, net_cost:0, notes:'' });
+    }
+  }
+  // ensure all 3 tiers exist
+  for (const tier of SCENARIO_TIERS) {
+    if (!scenarios.find(s => s.scenario_type === tier.name)) {
+      const res  = await fetch('/api/budget_scenario', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ scenario_type: tier.name, ep: 101, region_mix: '[]' })
+      });
+      const data = await res.json();
+      scenarios.push({ id: data.id, scenario_type: tier.name, ep: 101, region_mix: '[]', tax_pct:0, eligible_pct:0, net_cost:0, notes:'' });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 2 — EP FORECAST
+// ═══════════════════════════════════════════════════════════════════════
+function calcEP(r) {
+  const budget        = r.budget            || 0;
+  const award         = r.award             || 0;
+  const eligible_usd  = r.eligible          || 0;
+  const cont          = r.contingency       || 0;
+  const mix           = parseRegionMix(r.region_mix);
+  const globalReb     = computeGlobalRebate(mix);
+  const eligiblePct   = 1 - globalReb;
+  const rebate        = eligible_usd * globalReb;
+  const net           = budget - rebate;
+  const overage       = award - budget;
+  const continUSD     = overage > 0 ? 0 : budget * cont;
+  const totNetCont    = net + continUSD;
+  const status        = overage > 0 ? 'OVER BUDGET — CONTINGENCY VOID'
+                      : (budget > 0 ? 'OK' : '');
+  return { globalReb, eligiblePct, rebate, net, overage, continUSD, totNetCont, status, mix };
+}
+
+function renderEPForecast() {
+  const tbody = document.getElementById('epf-body');
+  tbody.innerHTML = epForecast.map(r => {
+    const c = calcEP(r);
+    const statusColor = c.status.includes('OVER') ? '#e05252' : '#52c46a';
+    const overColor   = c.overage > 0 ? '#e05252' : (c.overage < 0 ? '#52c46a' : '#6870a0');
+    const mixLabel    = c.mix.length
+      ? `<span style="font-size:10px;font-weight:700;color:#52c46a;">${(c.globalReb*100).toFixed(1)}%</span>
+         <button class="sc-mix-btn" onclick="openRegionMixForEP(${r.id})"><i class="bi bi-globe"></i></button>
+         <div style="font-size:9px;color:#4a5080;margin-top:2px;">${mixSummaryText(c.mix)}</div>`
+      : `<button class="sc-mix-btn sc-mix-btn-empty" onclick="openRegionMixForEP(${r.id})">
+           <i class="bi bi-globe me-1"></i>Set Region Mix
+         </button>`;
+    return `
+  <tr data-id="${r.id}">
+    <td style="font-weight:700;color:#f0b429;">${r.ep}</td>
+    <td>${inp(r.contingency, 'pct', `saveEPF(${r.id},'contingency',this.value/100)`, 'style="width:50px;"')}</td>
+    <td>${inp(r.budget,   'number', `saveEPF(${r.id},'budget',   this.value)`)}</td>
+    <td>${inp(r.award,    'number', `saveEPF(${r.id},'award',    this.value)`)}</td>
+    <td>${inp(r.eligible, 'number', `saveEPF(${r.id},'eligible', this.value)`)}</td>
+    <td class="sc-auto-cell" style="min-width:150px;">${mixLabel}</td>
+    <td class="sc-auto-cell">${derived(c.rebate)}</td>
+    <td class="sc-auto-cell">${derived(c.net, '#d0d8f0')}</td>
+    <td class="sc-auto-cell" style="color:#d0d8f0;font-weight:600;text-align:center;">${c.mix.length ? (c.eligiblePct*100).toFixed(1)+'%' : '—'}</td>
+    <td class="sc-auto-cell">${derived(c.totNetCont, '#52c46a')}</td>
+    <td class="sc-auto-cell"><span style="color:#4a9cf0;font-weight:600;">${fmt$(c.continUSD)}</span></td>
+    <td class="sc-auto-cell"><span style="color:${overColor};font-weight:600;">${c.overage > 0 ? '+' : ''}${fmt$(c.overage)}</span></td>
+    <td class="sc-auto-cell"><span style="font-size:10px;font-weight:700;color:${statusColor};">${c.status}</span></td>
+    <td>${inp(r.notes, 'text', `saveEPF(${r.id},'notes',this.value)`, 'style="width:160px;"')}</td>
+  </tr>`;
+  }).join('');
+
+  // totals
+  const totBudget = epForecast.reduce((s,r) => s + (r.budget||0), 0);
+  const totAward  = epForecast.reduce((s,r) => s + (r.award||0), 0);
+  const totRebate = epForecast.reduce((s,r) => s + calcEP(r).rebate, 0);
+  const totNet    = epForecast.reduce((s,r) => s + calcEP(r).net, 0);
+  const totOver   = epForecast.reduce((s,r) => s + Math.max(0, calcEP(r).overage), 0);
+  document.getElementById('epf-totals').innerHTML = `
+    <span>Total Budget: <strong style="color:#f0b429;">${fmt$(totBudget)}</strong></span>
+    <span>Total Award: <strong style="color:#d0d8f0;">${fmt$(totAward)}</strong></span>
+    <span>Total Rebate: <strong style="color:#52c46a;">${fmt$(totRebate)}</strong></span>
+    <span>Total Net: <strong style="color:#52c46a;">${fmt$(totNet)}</strong></span>
+    <span>Total Overage: <strong style="color:#e05252;">${fmt$(totOver)}</strong></span>`;
+
+  renderScenarios();
+}
+
+function openRegionMixForEP(id) {
+  const r = epForecast.find(x => x.id === id);
+  if (!r) return;
+  openRegionMixModal(`EP ${r.ep} — Region Mix`, parseRegionMix(r.region_mix), async (newMix) => {
+    r.region_mix = JSON.stringify(newMix);
+    renderEPForecast();
+    await fetch(`/api/ep_forecast/${id}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ region_mix: r.region_mix })
+    });
+  });
+}
+
+async function saveEPF(id, field, value) {
+  const row = epForecast.find(r => r.id === id);
+  const num = value === '' ? 0 : parseFloat(value);
+  if (row) row[field] = isNaN(num) ? value : num;
+  renderEPForecast();
+  debounce(`epf_${id}_${field}`, () => fetch(`/api/ep_forecast/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[field]: isNaN(num) ? value : num})
+  }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 3 — VENDOR FORECAST
+// ═══════════════════════════════════════════════════════════════════════
+function calcVendor(r) {
+  const gross    = r.gross_usd    || 0;
+  const elPct    = r.eligible_pct || 0;
+  const rebPct   = r.rebate_pct   || 0;
+  const eligible = gross * elPct;
+  const rebate   = eligible * rebPct;
+  const net      = gross - rebate;
+  return { eligible, rebate, net };
+}
+
+function renderVendors() {
+  const tbody = document.getElementById('vf-body');
+  if (!vendors.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-2" style="font-size:11px;">No vendors — click Add Vendor</td></tr>';
+    updateVendorTotals();
+    return;
+  }
+  tbody.innerHTML = vendors.map(r => {
+    const c = calcVendor(r);
+    return `
+  <tr data-id="${r.id}">
+    <td>${inp(r.vendor,      'text',   `saveVF(${r.id},'vendor',      this.value)`)}</td>
+    <td>${inp(r.ep,          'number', `saveVF(${r.id},'ep',          this.value)`, 'style="width:50px;"')}</td>
+    <td>${inp(r.gross_local, 'number', `saveVF(${r.id},'gross_local', this.value)`)}</td>
+    <td>${inp(r.gross_usd,   'number', `saveVF(${r.id},'gross_usd',   this.value)`)}</td>
+    <td>${inp(r.region,      'text',   `saveVF(${r.id},'region',      this.value)`, 'style="width:60px;"')}</td>
+    <td>${inp(r.eligible_pct,'pct',    `saveVF(${r.id},'eligible_pct',this.value/100)`, 'style="width:55px;"')}</td>
+    <td>${inp(r.rebate_pct,  'pct',    `saveVF(${r.id},'rebate_pct',  this.value/100)`, 'style="width:55px;"')}</td>
+    <td class="sc-auto-cell">${derived(c.eligible, '#4a9cf0')}</td>
+    <td class="sc-auto-cell">${derived(c.rebate,   '#52c46a')}</td>
+    <td class="sc-auto-cell">${derived(c.net,      '#d0d8f0')}</td>
+    <td>${inp(r.notes, 'text', `saveVF(${r.id},'notes',this.value)`, 'style="width:140px;"')}</td>
+    <td><button class="sc-del-btn" onclick="delVendor(${r.id})"><i class="bi bi-trash"></i></button></td>
+  </tr>`;
+  }).join('');
+  updateVendorTotals();
+}
+
+function updateVendorTotals() {
+  const totGross  = vendors.reduce((s,r) => s + (r.gross_usd||0), 0);
+  const totElig   = vendors.reduce((s,r) => s + calcVendor(r).eligible, 0);
+  const totRebate = vendors.reduce((s,r) => s + calcVendor(r).rebate, 0);
+  const totNet    = vendors.reduce((s,r) => s + calcVendor(r).net, 0);
+  document.getElementById('vf-totals').innerHTML = `
+    <span>Total Gross USD: <strong style="color:#f0b429;">${fmt$(totGross)}</strong></span>
+    <span>Total Eligible$: <strong style="color:#4a9cf0;">${fmt$(totElig)}</strong></span>
+    <span>Total Rebate$: <strong style="color:#52c46a;">${fmt$(totRebate)}</strong></span>
+    <span>Total Net: <strong style="color:#d0d8f0;">${fmt$(totNet)}</strong></span>`;
+}
+
+async function addVendorRow() {
+  const res = await fetch('/api/vendor_forecast', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({vendor:'', ep:101, gross_local:0, gross_usd:0, region:'', eligible_pct:0, rebate_pct:0})
+  });
+  const data = await res.json();
+  vendors.push({id:data.id, vendor:'', ep:101, gross_local:0, gross_usd:0, region:'', eligible_pct:0, rebate_pct:0, notes:''});
+  renderVendors();
+}
+
+async function saveVF(id, field, value) {
+  const row = vendors.find(r => r.id === id);
+  const num = value === '' ? 0 : parseFloat(value);
+  if (row) row[field] = (field==='vendor'||field==='region'||field==='notes') ? value : (isNaN(num)?0:num);
+  renderVendors();
+  debounce(`vf_${id}_${field}`, () => fetch(`/api/vendor_forecast/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[field]: row ? row[field] : value})
+  }));
+}
+
+async function delVendor(id) {
+  if (!confirm('Remove this vendor row?')) return;
+  await fetch(`/api/vendor_forecast/${id}`, {method:'DELETE'});
+  vendors = vendors.filter(r => r.id !== id);
+  renderVendors();
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function exportEPCSV() {
+  const rows = epForecast.map(r => {
+    const c = calcEP(r);
+    return [r.ep, (r.contingency||0)*100+'%', r.budget, r.award, r.eligible,
+            mixSummaryText(c.mix), (c.globalReb*100).toFixed(2)+'%',
+            (c.eligiblePct*100).toFixed(2)+'%', c.rebate, c.net,
+            c.totNetCont, c.continUSD, c.overage, c.status, r.notes];
+  });
+  const csv = ['EP,CONT%,BUDGET,AWARD,ELIGIBLE$,REGION_MIX,GLOBAL%,ELIGIBLE%,REBATE$,NET,TOT_NET_CONT,CONTIN$,OVERAGE,STATUS,NOTES',
+    ...rows.map(r => r.map(v=>`"${v}"`).join(','))].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'ep_forecast.csv'; a.click();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function loadAll() {
+  try {
+    const [eRes, vRes, sRes] = await Promise.all([
+      fetch('/api/ep_forecast'),
+      fetch('/api/vendor_forecast'),
+      fetch('/api/budget_scenario'),
+    ]);
+    epForecast = await eRes.json();
+    vendors    = await vRes.json();
+    scenarios  = await sRes.json();
+    await ensureScenarioRows();
+    populateEPSelector();
+    renderScenarios();
+    renderEPForecast();
+    renderVendors();
+  } catch(e) {
+    document.getElementById('page-err').textContent = 'Error loading data: ' + e.message;
+    document.getElementById('page-err').style.display = 'block';
+  }
+}
+document.addEventListener('DOMContentLoaded', loadAll);
+</script>
+
+<style>
+.sc-panel { background:#0d0f1c; border:1px solid #2e3050; border-radius:6px; overflow:hidden; }
+.sc-panel-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 14px; background:#12152a; border-bottom:1px solid #2e3050;
+  cursor:pointer; user-select:none; font-size:11px; font-weight:700;
+  letter-spacing:.7px; color:#f0b429;
+}
+.sc-panel-header:hover { background:#1a1d35; }
+.sc-toggle { font-size:9px; color:#4a5080; }
+.sc-table { width:100%; border-collapse:collapse; font-size:11px; }
+.sc-table th {
+  padding:5px 8px; background:#0d0f1c; color:#6870a0;
+  font-size:10px; font-weight:600; letter-spacing:.6px; text-transform:uppercase;
+  border-bottom:1px solid #2e3050; white-space:nowrap;
+}
+.sc-table th.sc-auto { color:#f0b429; }
+.sc-table td { padding:4px 8px; border-bottom:1px solid #1a1d35; vertical-align:middle; white-space:nowrap; }
+.sc-table tbody tr:hover td { background:#12152a; }
+.sc-auto-cell { background:rgba(240,180,41,0.04); }
+.sc-inp {
+  background:#1a1d35; border:1px solid #2e3050; color:#d0d8f0;
+  border-radius:3px; padding:2px 5px; font-size:11px; width:90px; outline:none;
+}
+.sc-inp:focus { border-color:#f0b429; }
+.sc-inp-pct { width:50px; }
+.sc-del-btn {
+  background:none; border:1px solid #3a1a1a; color:#e05252;
+  border-radius:3px; padding:1px 5px; font-size:10px; cursor:pointer; line-height:1.4;
+}
+.sc-del-btn:hover { background:#2a1010; }
+.sc-mix-btn {
+  background:#1a1d35; border:1px solid #2e3050; color:#6870a0;
+  border-radius:3px; padding:1px 6px; font-size:10px; cursor:pointer; line-height:1.6;
+}
+.sc-mix-btn:hover { border-color:#f0b429; color:#f0b429; }
+.sc-mix-btn-empty { color:#4a9cf0; border-color:#1a3050; }
+.sc-mix-btn-empty:hover { border-color:#4a9cf0; }
+</style>
+{% endblock %}

@@ -200,8 +200,76 @@ def init_project_db(db_path, ep_start=101, ep_end=108):
         vendor_bids TEXT
     )''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS vendor_tracker (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        vendor          TEXT,
+        region          TEXT,
+        ep              INTEGER,
+        asset_award     REAL,
+        award_ep        REAL,
+        tot_award       REAL,
+        paid            REAL DEFAULT 0,
+        pending         REAL DEFAULT 0,
+        remaining       REAL,
+        tax_reb         REAL,
+        gross_local     REAL,
+        gross_usd       REAL,
+        sale_tax_amount REAL,
+        gross_plus_tax  REAL,
+        tax_rebate_amt  REAL,
+        net_after_rebate REAL,
+        final_price     REAL
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS invoice_log (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        vendor       TEXT,
+        episode      INTEGER,
+        inv_num      TEXT,
+        inv_date     TEXT,
+        amount       REAL DEFAULT 0,
+        status       TEXT,
+        approve_date TEXT,
+        notes        TEXT
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS budget_scenario (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        scenario_type TEXT    DEFAULT 'Conservative',
+        ep            INTEGER DEFAULT 101,
+        tax_pct       REAL    DEFAULT 0,
+        eligible_pct  REAL    DEFAULT 0,
+        net_cost      REAL    DEFAULT 0,
+        notes         TEXT    DEFAULT ''
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS ep_forecast (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        ep               INTEGER NOT NULL UNIQUE,
+        contingency      REAL DEFAULT 0.2,
+        budget           REAL DEFAULT 0,
+        award            REAL DEFAULT 0,
+        eligible         REAL DEFAULT 0,
+        global_rebate_pct REAL DEFAULT 0,
+        global_pct       REAL DEFAULT 0,
+        notes            TEXT DEFAULT ''
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS vendor_forecast (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        vendor       TEXT DEFAULT '',
+        ep           INTEGER DEFAULT 101,
+        gross_local  REAL DEFAULT 0,
+        gross_usd    REAL DEFAULT 0,
+        region       TEXT DEFAULT '',
+        eligible_pct REAL DEFAULT 0,
+        rebate_pct   REAL DEFAULT 0,
+        notes        TEXT DEFAULT ''
+    )''')
+
     for ep in range(ep_start, ep_end + 1):
         c.execute('INSERT OR IGNORE INTO ep_meta (ep) VALUES (?)', (ep,))
+        c.execute('INSERT OR IGNORE INTO ep_forecast (ep) VALUES (?)', (ep,))
 
     conn.commit()
     conn.close()
@@ -371,6 +439,13 @@ def bidcompare_page():
     r = require_project()
     if r: return r
     return render_template('bidcompare.html')
+
+
+@app.route('/vendortracker')
+def vendortracker_page():
+    r = require_project()
+    if r: return r
+    return render_template('vendortracker.html')
 
 
 # ---------------------------------------------------------------------------
@@ -1178,6 +1253,317 @@ def clear_bidcompare():
 
 
 # ---------------------------------------------------------------------------
+# API – Vendor Tracker
+# ---------------------------------------------------------------------------
+
+def _sfloat(v):
+    """Safe float — returns None for error strings/None."""
+    if v is None: return None
+    s = str(v).strip()
+    if not s or s.startswith('#') or s.startswith('\u26a0'): return None
+    try: return float(s)
+    except: return None
+
+
+@app.route('/api/vendortracker', methods=['GET', 'POST'])
+def vendortracker_collection():
+    conn = get_db()
+    if not conn: return jsonify([]) if request.method == 'GET' else jsonify({'error': 'No project'}), 400
+    if request.method == 'GET':
+        rows = conn.execute('SELECT * FROM vendor_tracker ORDER BY ep, vendor').fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    # POST — create new row
+    d = request.json
+    c = conn.cursor()
+    c.execute('''INSERT INTO vendor_tracker
+        (vendor, region, ep, asset_award, award_ep, tot_award,
+         paid, pending, remaining,
+         tax_reb, gross_local, gross_usd, sale_tax_amount,
+         gross_plus_tax, tax_rebate_amt, net_after_rebate, final_price)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+        (d.get('vendor',''), d.get('region',''),
+         d.get('ep'), d.get('asset_award'), d.get('award_ep'), d.get('tot_award'),
+         d.get('paid', 0), d.get('pending', 0), d.get('remaining'),
+         d.get('tax_reb'), d.get('gross_local'), d.get('gross_usd'),
+         d.get('sale_tax_amount'), d.get('gross_plus_tax'),
+         d.get('tax_rebate_amt'), d.get('net_after_rebate'), d.get('final_price')))
+    new_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return jsonify({'id': new_id})
+
+
+@app.route('/api/vendortracker/<int:row_id>', methods=['PUT'])
+def update_vendortracker(row_id):
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    d = request.json
+    allowed = ['vendor', 'region', 'ep', 'asset_award', 'award_ep', 'tot_award',
+               'paid', 'pending', 'remaining', 'tax_reb', 'gross_local', 'gross_usd',
+               'sale_tax_amount', 'gross_plus_tax', 'tax_rebate_amt', 'net_after_rebate', 'final_price']
+    updates = {k: d[k] for k in allowed if k in d}
+    if updates:
+        sql = 'UPDATE vendor_tracker SET ' + ', '.join(f'{k}=?' for k in updates) + ' WHERE id=?'
+        conn.execute(sql, list(updates.values()) + [row_id])
+        conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/vendortracker/<int:row_id>', methods=['DELETE'])
+def delete_vendortracker(row_id):
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    conn.execute('DELETE FROM vendor_tracker WHERE id=?', (row_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/vendortracker/clear', methods=['DELETE'])
+def clear_vendortracker():
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    conn.execute('DELETE FROM vendor_tracker')
+    conn.execute('DELETE FROM invoice_log')
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+
+def sync_tracker_paid(conn, vendor, ep):
+    """Recalculate paid/pending/remaining from invoices and update tracker row."""
+    if not vendor or ep is None:
+        return
+    tracker = conn.execute(
+        'SELECT id, tot_award FROM vendor_tracker WHERE UPPER(vendor)=UPPER(?) AND ep=?',
+        (vendor, ep)
+    ).fetchone()
+    if not tracker:
+        return
+    paid_sum = conn.execute(
+        'SELECT COALESCE(SUM(amount),0) FROM invoice_log WHERE UPPER(vendor)=UPPER(?) AND episode=? AND UPPER(status)="PAID"',
+        (vendor, ep)
+    ).fetchone()[0]
+    pending_sum = conn.execute(
+        'SELECT COALESCE(SUM(amount),0) FROM invoice_log WHERE UPPER(vendor)=UPPER(?) AND episode=? AND UPPER(status) IN ("PENDING","APPROVED")',
+        (vendor, ep)
+    ).fetchone()[0]
+    tot_award = tracker['tot_award'] or 0
+    remaining = tot_award - paid_sum
+    conn.execute(
+        'UPDATE vendor_tracker SET paid=?, pending=?, remaining=? WHERE id=?',
+        (paid_sum, pending_sum, remaining, tracker['id'])
+    )
+
+
+@app.route('/api/invoicelog', methods=['GET', 'POST'])
+def invoicelog_collection():
+    conn = get_db()
+    if not conn: return jsonify([]) if request.method == 'GET' else jsonify({'error': 'No project'}), 400
+    if request.method == 'GET':
+        rows = conn.execute('SELECT * FROM invoice_log ORDER BY episode, id').fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    # POST — create new row
+    d = request.json
+    c = conn.cursor()
+    c.execute('''INSERT INTO invoice_log
+        (vendor, episode, inv_num, inv_date, amount, status, approve_date, notes)
+        VALUES (?,?,?,?,?,?,?,?)''',
+        (d.get('vendor',''), d.get('episode'), d.get('inv_num',''),
+         d.get('inv_date',''), d.get('amount', 0), d.get('status',''),
+         d.get('approve_date',''), d.get('notes','')))
+    new_id = c.lastrowid
+    sync_tracker_paid(conn, d.get('vendor',''), d.get('episode'))
+    conn.commit()
+    conn.close()
+    return jsonify({'id': new_id})
+
+
+@app.route('/api/invoicelog/<int:row_id>', methods=['PUT'])
+def update_invoicelog(row_id):
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    # fetch current row so we can sync old vendor/ep if they change
+    old = conn.execute('SELECT vendor, episode FROM invoice_log WHERE id=?', (row_id,)).fetchone()
+    d = request.json
+    allowed = ['vendor', 'episode', 'inv_num', 'inv_date', 'amount', 'status', 'approve_date', 'notes']
+    updates = {k: d[k] for k in allowed if k in d}
+    if updates:
+        sql = 'UPDATE invoice_log SET ' + ', '.join(f'{k}=?' for k in updates) + ' WHERE id=?'
+        conn.execute(sql, list(updates.values()) + [row_id])
+    # sync tracker for old vendor/ep and new vendor/ep (handles renames)
+    new_vendor  = updates.get('vendor',  old['vendor']  if old else None)
+    new_episode = updates.get('episode', old['episode'] if old else None)
+    if old:
+        sync_tracker_paid(conn, old['vendor'], old['episode'])
+    if new_vendor != (old['vendor'] if old else None) or new_episode != (old['episode'] if old else None):
+        sync_tracker_paid(conn, new_vendor, new_episode)
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/invoicelog/<int:row_id>', methods=['DELETE'])
+def delete_invoicelog(row_id):
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    old = conn.execute('SELECT vendor, episode FROM invoice_log WHERE id=?', (row_id,)).fetchone()
+    conn.execute('DELETE FROM invoice_log WHERE id=?', (row_id,))
+    if old:
+        sync_tracker_paid(conn, old['vendor'], old['episode'])
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/vendortracker/import', methods=['POST'])
+def import_vendortracker():
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    f = request.files.get('file')
+    if not f: return jsonify({'error': 'No file'}), 400
+    if not f.filename.lower().endswith(('.xlsx', '.xls')):
+        return jsonify({'error': 'Use .xlsx files'}), 400
+
+    mode = request.form.get('mode', 'replace')
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(f.read()), data_only=True)
+
+    tracker_inserted = 0
+    invoice_inserted = 0
+
+    # ── VENDORINVTRACK sheet ────────────────────────────────────────────
+    if 'VENDORINVTRACK' in wb.sheetnames:
+        ws = wb['VENDORINVTRACK']
+        rows = list(ws.iter_rows(values_only=True))
+        # Find the TRACKING section header row (contains 'VENDOR' and 'EP' and 'PAID')
+        track_row = None
+        for i, row in enumerate(rows):
+            vals = [str(v).strip().upper() if v else '' for v in row]
+            if 'VENDOR' in vals and 'PAID' in vals and 'PENDING' in vals:
+                track_row = i
+                break
+
+        if track_row is not None:
+            headers = [str(v).strip() if v else '' for v in rows[track_row]]
+            # Build hmap with FIRST occurrence wins (handles duplicate VENDOR/REG)
+            hmap = {}
+            for i, h in enumerate(headers):
+                hu = h.upper()
+                if hu and hu not in hmap:
+                    hmap[hu] = i
+            # Find second VENDOR column for right (tax) section
+            vendor_indices = [i for i, h in enumerate(headers) if h.strip().upper() == 'VENDOR']
+            right_offset = vendor_indices[1] if len(vendor_indices) > 1 else None
+
+            if mode == 'replace':
+                conn.execute('DELETE FROM vendor_tracker')
+
+            for row in rows[track_row + 1:]:
+                if all(v is None for v in row): continue
+                v_idx = hmap.get('VENDOR', 1)
+                vendor = row[v_idx] if v_idx < len(row) else None
+                if not vendor or str(vendor).strip() == '': continue
+                vendor = str(vendor).strip()
+
+                reg_idx = hmap.get('REG', 2)
+                ep_idx  = hmap.get('EP', 3)
+                ep_val  = row[ep_idx] if ep_idx < len(row) else None
+                try:    ep_int = int(ep_val) if ep_val is not None else None
+                except: ep_int = None
+
+                def gv(key, default=None):
+                    idx = hmap.get(key.upper())
+                    return row[idx] if idx is not None and idx < len(row) else default
+
+                def gv_right(offset, default=None):
+                    if right_offset is None: return default
+                    idx = right_offset + offset
+                    return row[idx] if idx < len(row) else default
+
+                tot_key = next((k for k in hmap if 'TOT' in k and 'AWARD' in k), None)
+                rem_key = next((k for k in hmap if 'REMAIN' in k), None)
+
+                conn.execute('''INSERT INTO vendor_tracker
+                    (vendor, region, ep, asset_award, award_ep, tot_award,
+                     paid, pending, remaining,
+                     tax_reb, gross_local, gross_usd, sale_tax_amount,
+                     gross_plus_tax, tax_rebate_amt, net_after_rebate, final_price)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                    (vendor,
+                     str(row[reg_idx]).strip() if reg_idx < len(row) and row[reg_idx] else '',
+                     ep_int,
+                     _sfloat(gv('ASSET_AWARD')),
+                     _sfloat(gv('AWARD_EP')),
+                     _sfloat(gv(tot_key) if tot_key else None),
+                     _sfloat(gv('PAID')) or 0,
+                     _sfloat(gv('PENDING')) or 0,
+                     _sfloat(gv(rem_key) if rem_key else None),
+                     _sfloat(gv_right(2)),   # TAX_REB
+                     _sfloat(gv_right(3)),   # GROSS(local currency)
+                     _sfloat(gv_right(4)),   # GROSS(usd)
+                     _sfloat(gv_right(5)),   # SALE TAX amount
+                     _sfloat(gv_right(6)),   # Gross+salestax
+                     _sfloat(gv_right(7)),   # Tax Rebate
+                     _sfloat(gv_right(8)),   # NET(after tax rebate)
+                     _sfloat(gv_right(10)),  # Final Price
+                    ))
+                tracker_inserted += 1
+
+    # ── INVOICELOG sheet ───────────────────────────────────────────────
+    if 'INVOICELOG' in wb.sheetnames:
+        ws2 = wb['INVOICELOG']
+        rows2 = list(ws2.iter_rows(values_only=True))
+        # Find header row with VENDOR, INV#, AMOUNT
+        hdr_row = None
+        for i, row in enumerate(rows2):
+            vals = [str(v).strip().upper() if v else '' for v in row]
+            if 'VENDOR' in vals and 'AMOUNT' in vals:
+                hdr_row = i
+                break
+
+        if hdr_row is not None:
+            headers2 = [str(v).strip().upper() if v else '' for v in rows2[hdr_row]]
+            h2map = {h: i for i, h in enumerate(headers2) if h}
+
+            if mode == 'replace':
+                conn.execute('DELETE FROM invoice_log')
+
+            def g2(key, row):
+                idx = h2map.get(key)
+                return row[idx] if idx is not None and idx < len(row) else None
+
+            def fmt_date(v):
+                if v is None: return None
+                if hasattr(v, 'strftime'): return v.strftime('%Y-%m-%d')
+                return str(v).strip()
+
+            for row in rows2[hdr_row + 1:]:
+                if all(v is None for v in row): continue
+                vendor = g2('VENDOR', row)
+                if not vendor or str(vendor).strip() == '': continue
+                conn.execute('''INSERT INTO invoice_log
+                    (vendor, episode, inv_num, inv_date, amount, status, approve_date, notes)
+                    VALUES (?,?,?,?,?,?,?,?)''',
+                    (str(vendor).strip(),
+                     int(g2('EPISODE', row)) if g2('EPISODE', row) is not None else None,
+                     str(g2('INV#', row) or '').strip(),
+                     fmt_date(g2('INV_DATE', row)),
+                     _sfloat(g2('AMOUNT', row)) or 0,
+                     str(g2('STATUS', row) or '').strip(),
+                     fmt_date(g2('APPROVE DATE', row)),
+                     str(g2('NOTES', row) or '').strip()))
+                invoice_inserted += 1
+
+    conn.commit()
+    conn.close()
+    return jsonify({'tracker_inserted': tracker_inserted, 'invoice_inserted': invoice_inserted})
+
+
+# ---------------------------------------------------------------------------
 # API – Import Excel
 # ---------------------------------------------------------------------------
 
@@ -1356,9 +1742,177 @@ def migrate_db_schema():
                     vendor_bids TEXT
                 )''')
                 pconn.commit()
+            if 'vendor_tracker' not in tables:
+                pconn.execute('''CREATE TABLE IF NOT EXISTS vendor_tracker (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    vendor TEXT, region TEXT, ep INTEGER,
+                    asset_award REAL, award_ep REAL, tot_award REAL,
+                    paid REAL DEFAULT 0, pending REAL DEFAULT 0, remaining REAL,
+                    tax_reb REAL, gross_local REAL, gross_usd REAL,
+                    sale_tax_amount REAL, gross_plus_tax REAL,
+                    tax_rebate_amt REAL, net_after_rebate REAL, final_price REAL
+                )''')
+                pconn.commit()
+            if 'invoice_log' not in tables:
+                pconn.execute('''CREATE TABLE IF NOT EXISTS invoice_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    vendor TEXT, episode INTEGER, inv_num TEXT,
+                    inv_date TEXT, amount REAL DEFAULT 0,
+                    status TEXT, approve_date TEXT, notes TEXT
+                )''')
+                pconn.commit()
+            if 'budget_scenario' not in tables:
+                pconn.execute('''CREATE TABLE IF NOT EXISTS budget_scenario (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, scenario_type TEXT DEFAULT 'Conservative',
+                    ep INTEGER DEFAULT 101, tax_pct REAL DEFAULT 0,
+                    eligible_pct REAL DEFAULT 0, net_cost REAL DEFAULT 0, notes TEXT DEFAULT ''
+                )''')
+                pconn.commit()
+            if 'ep_forecast' not in tables:
+                pconn.execute('''CREATE TABLE IF NOT EXISTS ep_forecast (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, ep INTEGER NOT NULL UNIQUE,
+                    contingency REAL DEFAULT 0.2, budget REAL DEFAULT 0,
+                    award REAL DEFAULT 0, eligible REAL DEFAULT 0,
+                    global_rebate_pct REAL DEFAULT 0, global_pct REAL DEFAULT 0,
+                    notes TEXT DEFAULT ''
+                )''')
+                # seed EP rows 101-108
+                for _ep in range(101, 109):
+                    pconn.execute('INSERT OR IGNORE INTO ep_forecast (ep) VALUES (?)', (_ep,))
+                pconn.commit()
+            if 'vendor_forecast' not in tables:
+                pconn.execute('''CREATE TABLE IF NOT EXISTS vendor_forecast (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, vendor TEXT DEFAULT '',
+                    ep INTEGER DEFAULT 101, gross_local REAL DEFAULT 0,
+                    gross_usd REAL DEFAULT 0, region TEXT DEFAULT '',
+                    eligible_pct REAL DEFAULT 0, rebate_pct REAL DEFAULT 0,
+                    notes TEXT DEFAULT ''
+                )''')
+                pconn.commit()
+            # Add region_mix columns if missing
+            epf_cols = [r[1] for r in pconn.execute('PRAGMA table_info(ep_forecast)').fetchall()]
+            if 'region_mix' not in epf_cols:
+                pconn.execute("ALTER TABLE ep_forecast ADD COLUMN region_mix TEXT DEFAULT '[]'")
+                pconn.commit()
+            sc_cols = [r[1] for r in pconn.execute('PRAGMA table_info(budget_scenario)').fetchall()]
+            if 'region_mix' not in sc_cols:
+                pconn.execute("ALTER TABLE budget_scenario ADD COLUMN region_mix TEXT DEFAULT '[]'")
+                pconn.commit()
             pconn.close()
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# Budget Scenario & Forecast
+# ---------------------------------------------------------------------------
+
+@app.route('/scenario')
+def scenario():
+    redir = require_project()
+    if redir: return redir
+    return render_template('scenario.html')
+
+
+@app.route('/api/budget_scenario', methods=['GET', 'POST'])
+def budget_scenario_collection():
+    conn = get_db()
+    if not conn: return jsonify([]) if request.method == 'GET' else jsonify({'error': 'No project'}), 400
+    if request.method == 'GET':
+        rows = conn.execute('SELECT * FROM budget_scenario ORDER BY id').fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    d = request.json
+    c = conn.cursor()
+    c.execute('''INSERT INTO budget_scenario (scenario_type, ep, tax_pct, eligible_pct, net_cost, notes, region_mix)
+                 VALUES (?,?,?,?,?,?,?)''',
+              (d.get('scenario_type','Conservative'), d.get('ep', 101),
+               d.get('tax_pct', 0), d.get('eligible_pct', 0),
+               d.get('net_cost', 0), d.get('notes', ''), d.get('region_mix', '[]')))
+    new_id = c.lastrowid
+    conn.commit(); conn.close()
+    return jsonify({'id': new_id})
+
+
+@app.route('/api/budget_scenario/<int:row_id>', methods=['PUT', 'DELETE'])
+def budget_scenario_row(row_id):
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    if request.method == 'DELETE':
+        conn.execute('DELETE FROM budget_scenario WHERE id=?', (row_id,))
+        conn.commit(); conn.close()
+        return jsonify({'status': 'ok'})
+    d = request.json
+    allowed = ['scenario_type', 'ep', 'tax_pct', 'eligible_pct', 'net_cost', 'notes', 'region_mix']
+    updates = {k: d[k] for k in allowed if k in d}
+    if updates:
+        sql = 'UPDATE budget_scenario SET ' + ', '.join(f'{k}=?' for k in updates) + ' WHERE id=?'
+        conn.execute(sql, list(updates.values()) + [row_id])
+        conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/ep_forecast', methods=['GET'])
+def ep_forecast_collection():
+    conn = get_db()
+    if not conn: return jsonify([])
+    rows = conn.execute('SELECT * FROM ep_forecast ORDER BY ep').fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/ep_forecast/<int:row_id>', methods=['PUT'])
+def update_ep_forecast(row_id):
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    d = request.json
+    allowed = ['contingency', 'budget', 'award', 'eligible', 'region_mix', 'global_pct', 'notes']
+    updates = {k: d[k] for k in allowed if k in d}
+    if updates:
+        sql = 'UPDATE ep_forecast SET ' + ', '.join(f'{k}=?' for k in updates) + ' WHERE id=?'
+        conn.execute(sql, list(updates.values()) + [row_id])
+        conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/vendor_forecast', methods=['GET', 'POST'])
+def vendor_forecast_collection():
+    conn = get_db()
+    if not conn: return jsonify([]) if request.method == 'GET' else jsonify({'error': 'No project'}), 400
+    if request.method == 'GET':
+        rows = conn.execute('SELECT * FROM vendor_forecast ORDER BY ep, vendor').fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    d = request.json
+    c = conn.cursor()
+    c.execute('''INSERT INTO vendor_forecast (vendor, ep, gross_local, gross_usd, region, eligible_pct, rebate_pct, notes)
+                 VALUES (?,?,?,?,?,?,?,?)''',
+              (d.get('vendor',''), d.get('ep', 101), d.get('gross_local', 0), d.get('gross_usd', 0),
+               d.get('region',''), d.get('eligible_pct', 0), d.get('rebate_pct', 0), d.get('notes','')))
+    new_id = c.lastrowid
+    conn.commit(); conn.close()
+    return jsonify({'id': new_id})
+
+
+@app.route('/api/vendor_forecast/<int:row_id>', methods=['PUT', 'DELETE'])
+def vendor_forecast_row(row_id):
+    conn = get_db()
+    if not conn: return jsonify({'error': 'No project'}), 400
+    if request.method == 'DELETE':
+        conn.execute('DELETE FROM vendor_forecast WHERE id=?', (row_id,))
+        conn.commit(); conn.close()
+        return jsonify({'status': 'ok'})
+    d = request.json
+    allowed = ['vendor', 'ep', 'gross_local', 'gross_usd', 'region', 'eligible_pct', 'rebate_pct', 'notes']
+    updates = {k: d[k] for k in allowed if k in d}
+    if updates:
+        sql = 'UPDATE vendor_forecast SET ' + ', '.join(f'{k}=?' for k in updates) + ' WHERE id=?'
+        conn.execute(sql, list(updates.values()) + [row_id])
+        conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
 
 
 def migrate_legacy_db():

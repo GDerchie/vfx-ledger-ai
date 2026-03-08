@@ -143,6 +143,94 @@
   </div>
 </div>
 
+<!-- Shot Complexity Forecast -->
+<div class="vfx-panel mb-3">
+  <div class="vfx-panel-header" style="cursor:pointer;user-select:none;" onclick="toggleForecast()">
+    <span><i class="bi bi-bar-chart-line me-2"></i>SHOT COMPLEXITY FORECAST — EP{{ ep_num }}</span>
+    <span id="fc-toggle-hint" class="text-muted" style="font-size:10px;">▲ click to hide</span>
+  </div>
+  <div id="fc-body" class="vfx-panel-body">
+
+    <!-- Summary row -->
+    <div class="d-flex gap-4 mb-3 flex-wrap align-items-end" style="font-size:12px;">
+      <div>
+        <div style="font-size:10px;color:#6870a0;letter-spacing:.6px;margin-bottom:3px;">BUDGET</div>
+        <input type="number" id="fc-budget" class="vfx-input" style="width:150px;"
+               oninput="recalcForecast()" placeholder="0">
+      </div>
+      <div>
+        <div style="font-size:10px;color:#6870a0;letter-spacing:.6px;margin-bottom:3px;">SHOT COUNT</div>
+        <input type="number" id="fc-shots" class="vfx-input" style="width:90px;"
+               oninput="recalcForecast()" placeholder="0">
+      </div>
+      <div>
+        <div style="font-size:10px;color:#6870a0;letter-spacing:.6px;margin-bottom:3px;">AVG SHOT COST</div>
+        <div id="fc-avg-cost" style="font-size:15px;font-weight:700;color:#f0b429;line-height:2;">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#6870a0;letter-spacing:.6px;margin-bottom:3px;">EFFORT</div>
+        <div id="fc-effort" style="font-size:15px;font-weight:700;color:#d0d8f0;line-height:2;">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#6870a0;letter-spacing:.6px;margin-bottom:3px;">BASE COST</div>
+        <div id="fc-base-cost" style="font-size:15px;font-weight:700;color:#52c46a;line-height:2;">—</div>
+      </div>
+      <div class="ms-auto d-flex align-items-end">
+        <button class="btn btn-sm btn-outline-secondary" onclick="syncForecastFromEP()" style="font-size:10px;">
+          <i class="bi bi-arrow-clockwise me-1"></i>Sync from EP
+        </button>
+      </div>
+    </div>
+
+    <!-- Tier table -->
+    <div style="overflow-x:auto;">
+      <table class="fc-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding-left:12px;">COMPLEXITY</th>
+            <th>SHOTS %</th>
+            <th>SHOT COUNT</th>
+            <th>MULTIPLIER</th>
+            <th>WEIGHT</th>
+            <th>TOT. BY TIER</th>
+            <th>AVG $/SHOT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="fc-tier" style="color:#4a9cf0;">SIMPLE</td>
+            <td><input type="number" class="fc-in" id="fc-pct-0" value="25" min="0" max="100" oninput="recalcForecast()"> <span style="color:#6870a0;">%</span></td>
+            <td id="fc-sc-0"  class="fc-out">—</td>
+            <td><input type="number" class="fc-in" id="fc-mult-0" value="0.5" step="0.1" min="0" oninput="recalcForecast()"></td>
+            <td id="fc-wt-0"  class="fc-out">—</td>
+            <td id="fc-tot-0" class="fc-out fc-money">—</td>
+            <td id="fc-avg-0" class="fc-out fc-money" style="color:#4a9cf0;">—</td>
+          </tr>
+          <tr>
+            <td class="fc-tier" style="color:#f0b429;">MEDIUM</td>
+            <td><input type="number" class="fc-in" id="fc-pct-1" value="50" min="0" max="100" oninput="recalcForecast()"> <span style="color:#6870a0;">%</span></td>
+            <td id="fc-sc-1"  class="fc-out">—</td>
+            <td><input type="number" class="fc-in" id="fc-mult-1" value="1.0" step="0.1" min="0" oninput="recalcForecast()"></td>
+            <td id="fc-wt-1"  class="fc-out">—</td>
+            <td id="fc-tot-1" class="fc-out fc-money">—</td>
+            <td id="fc-avg-1" class="fc-out fc-money" style="color:#f0b429;">—</td>
+          </tr>
+          <tr>
+            <td class="fc-tier" style="color:#e05252;">HEAVY</td>
+            <td><input type="number" class="fc-in" id="fc-pct-2" value="25" min="0" max="100" oninput="recalcForecast()"> <span style="color:#6870a0;">%</span></td>
+            <td id="fc-sc-2"  class="fc-out">—</td>
+            <td><input type="number" class="fc-in" id="fc-mult-2" value="2.5" step="0.1" min="0" oninput="recalcForecast()"></td>
+            <td id="fc-wt-2"  class="fc-out">—</td>
+            <td id="fc-tot-2" class="fc-out fc-money">—</td>
+            <td id="fc-avg-2" class="fc-out fc-money" style="color:#e05252;">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
 <!-- Shot List Table -->
 <div class="vfx-panel">
   <div class="vfx-panel-header">
@@ -236,6 +324,9 @@ function updateCards(data){
   const scv = document.getElementById('sc-var');
   scv.textContent = (variance>0?'+':'')+fmt$(variance);
   scv.className   = 'value '+varClass(variance);
+
+  // keep forecast in sync with live EP budget
+  if (document.getElementById('fc-budget')) recalcForecast();
 }
 
 // ── EP meta ───────────────────────────────────────────────────────────────────
@@ -603,6 +694,55 @@ async function commitImport(){
   buildShotsTable(shotsData);
 }
 
+// ── Shot Complexity Forecast ──────────────────────────────────────────────────
+function toggleForecast() {
+  const body = document.getElementById('fc-body');
+  const hint = document.getElementById('fc-toggle-hint');
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  hint.textContent   = hidden ? '▲ click to hide' : '▼ click to show';
+}
+
+function syncForecastFromEP() {
+  const active = shotsTable ? shotsTable.getData().filter(r => !r.omit) : [];
+  const budget = active.reduce((a, r) => a + (r.cost_est || 0), 0);
+  const shots  = active.length;
+  document.getElementById('fc-budget').value = budget ? Math.round(budget) : '';
+  document.getElementById('fc-shots').value  = shots  || '';
+  recalcForecast();
+}
+
+function recalcForecast() {
+  const budget    = parseFloat(document.getElementById('fc-budget').value) || 0;
+  const shotTotal = parseFloat(document.getElementById('fc-shots').value)  || 0;
+
+  const avgCost = (budget > 0 && shotTotal > 0) ? budget / shotTotal : 0;
+  document.getElementById('fc-avg-cost').textContent = avgCost ? fmt$(avgCost) : '—';
+
+  const pcts  = [0,1,2].map(i => (parseFloat(document.getElementById(`fc-pct-${i}`).value)  || 0) / 100);
+  const mults = [0,1,2].map(i =>  parseFloat(document.getElementById(`fc-mult-${i}`).value) || 0);
+
+  const shotCounts = pcts.map(p => Math.round(shotTotal * p));
+  const weights    = shotCounts.map((sc, i) => sc * mults[i]);
+  const effort     = weights.reduce((a, b) => a + b, 0);
+
+  document.getElementById('fc-effort').textContent = effort ? effort.toFixed(1) : '—';
+
+  const baseCost = (budget > 0 && effort > 0) ? budget / effort : 0;
+  document.getElementById('fc-base-cost').textContent = baseCost ? fmt$(baseCost) : '—';
+
+  for (let i = 0; i < 3; i++) {
+    const sc  = shotCounts[i];
+    const wt  = weights[i];
+    const tot = wt * baseCost;
+    const avg = sc > 0 ? tot / sc : 0;
+    document.getElementById(`fc-sc-${i}`).textContent  = sc  || '—';
+    document.getElementById(`fc-wt-${i}`).textContent  = wt  ? wt.toFixed(1) : '—';
+    document.getElementById(`fc-tot-${i}`).textContent = tot ? fmt$(tot) : '—';
+    document.getElementById(`fc-avg-${i}`).textContent = avg ? fmt$(avg) : '—';
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init(){
   await loadEpMeta();
@@ -610,7 +750,28 @@ async function init(){
   shotsData = await res.json();
   buildShotsTable(shotsData);
   await loadHistory();
+  syncForecastFromEP();   // auto-populate forecast from loaded EP data
 }
 init();
 </script>
+
+<style>
+.fc-table { width:100%; border-collapse:collapse; font-size:12px; }
+.fc-table th {
+  padding: 5px 10px; background:#0d0f1c; color:#6870a0;
+  font-size:10px; font-weight:600; letter-spacing:.7px; text-transform:uppercase;
+  border-bottom:1px solid #2e3050; text-align:center;
+}
+.fc-table td { padding:5px 10px; border-bottom:1px solid #1e2240; text-align:center; vertical-align:middle; }
+.fc-table tbody tr:hover td { background:#0d0f1c; }
+.fc-tier { text-align:left !important; font-weight:700; font-size:12px; padding-left:12px !important; }
+.fc-out  { font-weight:600; color:#d0d8f0; }
+.fc-money { color:#f0b429 !important; }
+.fc-in {
+  background:#1a1d35; border:1px solid #2e3050; color:#d0d8f0;
+  border-radius:3px; padding:2px 5px; width:60px; font-size:11px;
+  text-align:center;
+}
+.fc-in:focus { outline:none; border-color:#f0b429; }
+</style>
 {% endblock %}
