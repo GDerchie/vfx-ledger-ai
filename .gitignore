@@ -1,4 +1,45 @@
+# Databases
 *.vfxdb
 *.db
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+flask_out.log
+
+# Secrets / config with credentials
+auth_config.json
+slack_config.json
+.env
+
+# Backups
+*.bak
+
+# Transient job state
+job_states/
+
+# Import staging dirs
+IMPORT/
+LAYOOUTLOOK/
+
+# Binary / generated assets
+*.pptx
+*.docx
+*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
