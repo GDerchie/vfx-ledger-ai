@@ -18,10 +18,12 @@ A Flask web application for managing episode-level VFX costs, shot inventory, ve
 9. [Risk Forecasting](#9-risk-forecasting)
 10. [Invoice Tracking](#10-invoice-tracking)
 11. [Dashboard & Reporting](#11-dashboard--reporting)
-12. [Audit Log](#12-audit-log)
-13. [Slack Alerts](#13-slack-alerts)
-14. [Authentication & API Access](#14-authentication--api-access)
-15. [Key Reference Tables](#15-key-reference-tables)
+12. [Game Theory Advisor](#12-game-theory-advisor)
+13. [Audit Log](#13-audit-log)
+14. [Slack Alerts](#14-slack-alerts)
+15. [Authentication & API Access](#15-authentication--api-access)
+16. [UI Themes](#16-ui-themes)
+17. [Key Reference Tables](#17-key-reference-tables)
 
 ---
 
@@ -57,12 +59,12 @@ START.bat
 
 **Cross-platform (Python):**
 ```bash
-python launch.py                  # default port 5000
-python launch.py --port 5001      # custom port
+python launch.py                  # default port 5100
+python launch.py --port 5200      # custom port
 python launch.py --no-browser     # no auto browser open
 ```
 
-The app opens at `http://localhost:5000`.
+The app opens at `http://localhost:5100`.
 
 ---
 
@@ -76,7 +78,7 @@ Populate a fully seeded demo project (SHOWCASE S1) with 5 vendors and 8 episodes
 python populate_demo.py
 ```
 
-Then open `http://localhost:5000` and select **SHOWCASE S1** from the project list.
+Then open `http://localhost:5100` and select **SHOWCASE S1** from the project list.
 
 ### Configure the LLM (Optional)
 
@@ -85,7 +87,7 @@ Edit `llm_config.json` to choose your LLM provider:
 ```json
 {
   "provider": "ollama",
-  "ollama_model": "qwen2.5:7b",
+  "ollama_model": "qwen3.8:latest",
   "ollama_url": "http://localhost:11434",
   "claude_model": "claude-haiku-4-5-20251001",
   "claude_api_key": "YOUR_KEY_HERE",
@@ -98,17 +100,19 @@ Edit `llm_config.json` to choose your LLM provider:
 
 | Provider | Requirement |
 |----------|-------------|
-| `ollama` | Ollama running locally with `qwen2.5:7b` pulled |
+| `ollama` | Ollama running locally with `qwen3.8:latest` pulled |
 | `claude` | Anthropic API key |
 | `openai` | OpenAI API key |
 
 Set `provider` to your choice. LLM features are optional — the system works fully without them.
 
+> **Note:** `qwen3.8:latest` is a 17 GB model. First call may take ~60–90 s cold start. Subsequent calls are faster. For speed-critical workflows, switch to `llama3.2:1b` (1.4 GB).
+
 ---
 
 ## 3. Project Management
 
-### Home Page (`/`)
+### Home Page (`/projects`)
 
 The home page lists all registered projects. Each project is an independent SQLite database stored in the `projects/` directory.
 
@@ -279,7 +283,7 @@ Set capacity per vendor:
 
 Used by the Risk Forecast engine to compute capacity risk.
 
-### Vendor Tracker (`/vendor-tracker`)
+### Vendor Tracker (`/vendortracker`)
 
 Tracks payments per vendor:
 
@@ -396,7 +400,7 @@ predicted_delay_days = int(risk × 30)
 
 ### Where to See It
 
-Risk scores appear on the **Dashboard** (`/dashboard`) per episode, and in the **Distribution** view (`/distribution`) for side-by-side comparison across all episodes.
+Risk scores appear on the **Dashboard** (`/dashboard`) per episode, and in the **Distribution** view (`/`) for side-by-side comparison across all episodes.
 
 ---
 
@@ -445,7 +449,7 @@ Top-level season summary:
 | Complexity Split | SIMPLE / MEDIUM / HEAVY counts |
 | Asset Summary | Total asset estimate vs actual spend |
 
-### Distribution View (`/distribution`)
+### Distribution View (`/`)
 
 Side-by-side multi-episode table:
 - All episodes in columns
@@ -453,14 +457,6 @@ Side-by-side multi-episode table:
 - Color-coded variance (green = under, red = over)
 
 Useful for weekly production finance reviews.
-
-### Reports (`/reports`)
-
-Generate formatted reports:
-- **Budget Summary** — season cost roll-up
-- **Vendor Summary** — all vendor spend
-- **Episode Detail** — full shot list per episode
-- **Risk Report** — all episode risk scores
 
 ### Budget Scenarios (`/scenario`)
 
@@ -471,7 +467,43 @@ Model alternative budget outcomes:
 
 ---
 
-## 12. Audit Log
+## 12. Game Theory Advisor
+
+### Access
+
+Navigate to `/game_theory`.
+
+### What It Does
+
+The Game Theory Advisor applies economic and decision theory to your live project data — translated into plain VFX production language. No economics background required.
+
+The page is divided into seven numbered analysis sections:
+
+| Section | Question It Answers |
+|---------|-------------------|
+| **001 — What Will This Season Cost?** | Monte Carlo simulation + auction theory to forecast final spend range |
+| **002 — Who's Actually Saving You Money?** | Shapley value — which vendor genuinely contributes to cost reduction vs. who free-rides |
+| **003 — Who Might Bail?** | Prisoner's Dilemma — which vendors are most likely to walk mid-season or underdeliver |
+| **004 — The Stable Assignment** | Nash Equilibrium — the vendor assignment no one has an incentive to deviate from |
+| **005 — Track Record Across Shows** | Repeated Game Memory — vendors who have worked with this production before and their long-term value |
+| **006 — Double-Booked Alert** | Coalition Blocking — which vendor pairings create scheduling conflicts or budget pressure |
+| **007 — How You Ask Changes What You Pay** | Auction Comparison — first-price vs. second-price vs. sealed bid, and which gives better outcomes per scene |
+
+### How to Use It
+
+Each section has a **Run Analysis** button. Click it to send current project data to the LLM + game theory engine and receive a plain-language result.
+
+Results are written in VFX production terms — no accounting or economics jargon.
+
+### Requirements
+
+- A project must be open (select from `/projects`).
+- LLM must be configured for the narrative analysis sections (001, 005, 007).
+- Sections 002–004 and 006 use pure algorithmic computation and work without an LLM.
+
+---
+
+## 13. Audit Log
 
 ### Access
 
@@ -501,7 +533,7 @@ Filter the audit log by:
 
 ---
 
-## 13. Slack Alerts
+## 14. Slack Alerts
 
 ### Setup
 
@@ -522,7 +554,7 @@ The alert message includes: episode, scene, location, old EFC, new EFC, % over e
 
 ---
 
-## 14. Authentication & API Access
+## 15. Authentication & API Access
 
 ### Web Login
 
@@ -533,7 +565,7 @@ Navigate to `/login`. Enter your password. Session is maintained via cookie.
 For headless/scripted access, use a Bearer token:
 
 ```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:5000/api/shots/101
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:5100/api/shots/101
 ```
 
 Tokens are configured in **Settings → api_token**.
@@ -552,10 +584,27 @@ Tokens are configured in **Settings → api_token**.
 | `GET` | `/api/jobs/<job_id>` | Background job status |
 | `POST` | `/api/llm/cost_est` | LLM cost estimate for a shot |
 | `POST` | `/api/llm/vfx_desc` | LLM VFX description |
+| `GET` | `/api/game_theory/<analysis>` | Game theory engine endpoint |
+| `GET` | `/api/search?q=<query>` | Global search across shots, assets, notes |
 
 ---
 
-## 15. Key Reference Tables
+## 16. UI Themes
+
+The app ships with four visual themes, toggled by clicking the dot cluster in the top-right navbar:
+
+| Theme | Palette | Best For |
+|-------|---------|---------|
+| **Editorial** *(default)* | Cream `#f7f4ee` / Navy `#1a1d2e` / Amber `#c4622a` | Presentations, client reviews, bright monitors |
+| **Dark** | Deep navy / near-black | Low-light work, overnight sessions |
+| **Green** | Dark green tones | Personal preference |
+| **Light** | Full white / grey | Printing, high-brightness environments |
+
+Theme preference is saved in `localStorage` and persists across page loads. The default resets to **Editorial** if no preference has been set.
+
+---
+
+## 17. Key Reference Tables
 
 ### Shot Types
 
@@ -610,23 +659,24 @@ Tokens are configured in **Settings → api_token**.
 ## Typical Workflow
 
 ```
-1. Launch app → python launch.py
-2. Create project → Home → New Project
-3. Configure vendors → /vendor-registry (add regions, FX rates, rebates)
-4. Set vendor capacity → /vendor-tracker
-5. Import shots → /ep/101 → Import Shots (upsert mode)
-6. LLM enrichment → runs automatically during import if LLM is configured
-7. Enter bids → /bidcompare (one bid per vendor per scene)
-8. Run optimizer → /optimizer → compute lowest-cost assignments
-9. Award vendors → update AWARD VENDOR on shots
-10. Track actuals → update EFC as vendor invoices arrive
-11. Import invoice log → Import → Invoices
-12. Monitor risk → /dashboard (risk status per episode)
-13. Finance reporting → /reports or /distribution
-14. Audit changes → /audit
+1.  Launch app        → python launch.py  (http://localhost:5100)
+2.  Create project    → /projects → New Project
+3.  Configure vendors → /vendor-registry (add regions, FX rates, rebates)
+4.  Set capacity      → /vendortracker
+5.  Import shots      → /ep/101 → Import Shots (upsert mode)
+6.  LLM enrichment    → runs automatically during import if LLM is configured
+7.  Enter bids        → /bidcompare (one bid per vendor per scene)
+8.  Run optimizer     → /optimizer → compute lowest-cost assignments
+9.  Award vendors     → update AWARD VENDOR on shots
+10. Track actuals     → update EFC as vendor invoices arrive
+11. Import invoices   → Import → Invoices
+12. Game Theory       → /game_theory → run advisor sections
+13. Monitor risk      → /dashboard (risk status per episode)
+14. Finance reporting → /scenario or / (distribution)
+15. Audit changes     → /audit
 ```
 
 ---
 
 *MACHIAVELLI_a004 — VFX Budget System*
-*Path: C:\Users\gderc\OneDrive\Documents\DATABASE\VFX_SW_S1\11_AUTOMATION\MACHIAVELLI_a004*
+*Path: C:\Users\gderc\OneDrive\Documents\DATABASE\VFX_SHOW_TEMPLATE\11_AUTOMATION\MACHIAVELLI_a004*
