@@ -1,10 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Inter:wght@400;500;600;700;800&display=swap');
+
 /* ============================================================
-   VFX Budget System — Three-Theme Design System
-   Switch via: document.documentElement.setAttribute('data-theme','dark'|'green'|'light')
+   VFX Budget System — Editorial Design System
+   Default: cream / navy / amber
+   Themes (toggle cycles): editorial → dark → green → light
    ============================================================ */
 
-/* ── DARK (default — navy) ── */
-:root, [data-theme="dark"] {
+/* ── EDITORIAL — default (:root) ─────────────────────────── */
+:root {
+  --bg-deep:#f7f4ee;--bg-nav:#1a1d2e;--bg-panel:#f0ece3;
+  --bg-card:#eae5da;--bg-table:#ffffff;--bg-header:#f0ece3;
+  --bg-hover:rgba(196,98,42,.06);--bg-input:#ffffff;
+  --border:#d8d2c6;--border-mid:#c4bcb0;--border-hi:#a89e92;
+  --accent:#c4622a;--accent2:#2a5fa8;--red:#a83030;
+  --orange:#c4622a;--teal:#2a7a6a;--warning:#b07820;
+  --accent-dim:rgba(196,98,42,.09);--accent2-dim:rgba(42,95,168,.09);
+  --green-dim:rgba(58,122,74,.09);--red-dim:rgba(168,48,48,.09);
+  --orange-dim:rgba(196,98,42,.09);--teal-dim:rgba(42,122,106,.09);
+  --warning-dim:rgba(176,120,32,.09);
+  --text:#1a1d2e;--text-hi:#0d0f1a;--text-mid:#353850;
+  --text-muted:#7a7468;--text-dim:#a8a09a;
+  --row-even:#f7f4ee;--row-stripe:rgba(0,0,0,.02);--scrollbar:#c4bcb0;
+}
+
+/* ── DARK (navy) ── */
+[data-theme="dark"] {
   --bg-deep:#080c16;--bg-nav:#0a0b14;--bg-panel:#0d1120;
   --bg-card:#111828;--bg-table:#111828;--bg-header:#0c1020;
   --bg-hover:#161c30;--bg-input:#111828;
@@ -82,7 +102,8 @@
 
 /* ============================================================ BASE */
 *,*::before,*::after{box-sizing:border-box}
-body{background:var(--bg-deep);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.5;transition:background .3s,color .2s}
+body{background:var(--bg-deep);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.5;transition:background .3s,color .2s}
+.font-display,.vfx-nav .navbar-brand{font-family:'Barlow Condensed','Segoe UI',system-ui,sans-serif}
 a{color:var(--accent2);text-decoration:none}a:hover{color:var(--text-hi)}
 
 /* ============================================================ NAVBAR */

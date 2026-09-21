@@ -5,12 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}VFX Budget System{% endblock %}</title>
 
-<!-- Bootstrap 5 dark -->
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Bootstrap 5 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <!-- Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-<!-- Tabulator -->
-<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator_midnight.min.css">
+<!-- Tabulator (simple — styled fully via CSS vars) -->
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator_simple.min.css">
 
 <link rel="stylesheet" href="/static/style.css">
 <style>
@@ -44,7 +48,7 @@
 .ai-cur-val.has-val { color:#d0d8f0; font-style:normal; }
 </style>
 </head>
-<body data-bs-theme="dark" data-theme="dark" id="vfx-body">
+<body data-bs-theme="light" data-theme="editorial" id="vfx-body">
 
 <!-- NAVBAR -->
 <nav class="navbar navbar-expand-lg navbar-dark vfx-nav sticky-top">
@@ -130,14 +134,14 @@
           <span id="theme-label">Dark</span>
         </div>
         <!-- Global Search -->
-        <button class="btn btn-sm btn-outline-secondary" id="search-btn"
+        <button class="btn btn-sm" id="search-btn"
                 onclick="openSearch()"
                 title="Search (Ctrl+K)"
-                style="font-size:11px;border-color:#2e3050;color:#7880a0;padding:3px 8px;">
+                style="font-size:11px;border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.5);padding:3px 8px;background:transparent;">
           <i class="bi bi-search me-1"></i>Search
         </button>
-        <a href="/projects" class="nav-link text-muted"
-           style="font-size:11px;border:1px solid #2e3050;border-radius:4px;padding:3px 8px;">
+        <a href="/projects" class="nav-link"
+           style="font-size:11px;border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:3px 8px;color:rgba(255,255,255,.45);">
           <i class="bi bi-grid-3x2-gap me-1"></i>Projects
         </a>
       </div>
@@ -148,23 +152,23 @@
 <!-- GLOBAL SEARCH MODAL -->
 <div class="modal fade" id="searchModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable" style="margin-top:60px;">
-    <div class="modal-content" style="background:#0d0e18;border:1px solid #2e3050;">
-      <div class="modal-header" style="background:#12152a;border-bottom:1px solid #2e3050;padding:8px 14px;">
+    <div class="modal-content" style="background:var(--bg-panel);border:1px solid var(--border-mid);">
+      <div class="modal-header" style="background:var(--bg-nav);border-bottom:1px solid rgba(255,255,255,.1);padding:8px 14px;">
         <div class="d-flex align-items-center gap-2 w-100">
-          <i class="bi bi-search" style="color:#6870a0;"></i>
+          <i class="bi bi-search" style="color:rgba(255,255,255,.4);"></i>
           <input id="search-input" type="text" placeholder="Search shots, assets, notes…"
                  autocomplete="off"
-                 style="background:transparent;border:none;outline:none;color:#dce1f0;
-                        font-size:14px;flex:1;min-width:0;"
+                 style="background:transparent;border:none;outline:none;color:#ffffff;
+                        font-size:14px;flex:1;min-width:0;font-family:inherit;"
                  oninput="searchDebounce()">
-          <span id="search-spinner" class="spinner-border spinner-border-sm text-secondary"
-                style="display:none;width:14px;height:14px;"></span>
-          <kbd style="font-size:10px;color:#4a5080;background:#1a1d35;border:1px solid #2e3050;
+          <span id="search-spinner" class="spinner-border spinner-border-sm"
+                style="display:none;width:14px;height:14px;color:var(--accent);"></span>
+          <kbd style="font-size:10px;color:rgba(255,255,255,.35);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
                       border-radius:3px;padding:1px 5px;">ESC</kbd>
         </div>
       </div>
-      <div class="modal-body" id="search-body" style="padding:10px 14px;min-height:120px;max-height:60vh;overflow-y:auto;">
-        <div class="text-muted text-center py-4" style="font-size:12px;">Type to search…</div>
+      <div class="modal-body" id="search-body" style="padding:10px 14px;min-height:120px;max-height:60vh;overflow-y:auto;background:var(--bg-panel);">
+        <div class="text-center py-4" style="font-size:12px;color:var(--text-muted);">Type to search…</div>
       </div>
     </div>
   </div>
@@ -322,38 +326,38 @@
 
 <style>
 .srch-section-hdr {
-  font-size:9px; font-weight:700; letter-spacing:.8px; color:#4a5080;
-  padding:6px 2px 4px; text-transform:uppercase; border-top:1px solid #1a1d35; margin-top:4px;
+  font-size:9px; font-weight:700; letter-spacing:.8px; color:var(--text-dim);
+  padding:6px 2px 4px; text-transform:uppercase; border-top:1px solid var(--border); margin-top:4px;
 }
 .srch-section-hdr:first-child { border-top:none; margin-top:0; }
 .srch-count {
-  background:#1e2240; color:#6870a0; border-radius:8px;
+  background:var(--bg-card); color:var(--text-muted); border-radius:8px;
   padding:0 5px; font-size:9px; font-weight:600; margin-left:5px;
 }
 .srch-row {
   display:flex; align-items:center; gap:8px;
   padding:5px 6px; border-radius:4px; text-decoration:none;
-  cursor:pointer; margin-bottom:2px;
+  cursor:pointer; margin-bottom:2px; color:var(--text);
 }
-.srch-row:hover { background:#1a1d35; }
-.srch-ep   { font-size:10px; color:#f0b429; font-weight:700; min-width:35px; }
-.srch-sc   { font-size:10px; color:#7090c0; min-width:48px; font-weight:600; }
+.srch-row:hover { background:var(--bg-hover); }
+.srch-ep   { font-size:10px; color:var(--accent); font-weight:700; min-width:35px; }
+.srch-sc   { font-size:10px; color:var(--accent2); min-width:48px; font-weight:600; }
 .srch-main { flex:1; display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
-.srch-loc  { font-size:11px; color:#d0d8f0; font-weight:600; }
-.srch-desc { font-size:10px; color:#7880a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px; }
-.srch-asset{ font-size:10px; color:#52c46a; }
-.srch-asset-name { font-size:11px; color:#d0d8f0; font-weight:600; }
-.srch-type { font-size:9px; color:#4a9cf0; background:rgba(74,156,240,.12);
+.srch-loc  { font-size:11px; color:var(--text-hi); font-weight:600; }
+.srch-desc { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px; }
+.srch-asset{ font-size:10px; color:var(--accent); }
+.srch-asset-name { font-size:11px; color:var(--text-hi); font-weight:600; }
+.srch-type { font-size:9px; color:var(--accent2); background:var(--accent2-dim);
              padding:1px 5px; border-radius:3px; }
-.srch-vendor { font-size:10px; color:#6870a0; white-space:nowrap; margin-left:auto; }
+.srch-vendor { font-size:10px; color:var(--text-muted); white-space:nowrap; margin-left:auto; }
 </style>
 
 {% block scripts %}{% endblock %}
 
 <script>
 /* ── Theme system ── */
-const THEMES = ['dark', 'green', 'editorial', 'light'];
-const THEME_LABELS = { dark:'Dark', green:'Green', editorial:'Editorial', light:'Light' };
+const THEMES = ['editorial', 'dark', 'green', 'light'];
+const THEME_LABELS = { editorial:'Editorial', dark:'Dark', green:'Green', light:'Light' };
 
 function applyTheme(t) {
   const body = document.getElementById('vfx-body');
@@ -375,7 +379,7 @@ function cycleTheme() {
 (function() {
   const saved = localStorage.getItem('vfx-theme');
   if (saved && THEMES.includes(saved)) applyTheme(saved);
-  else applyTheme('dark');
+  else applyTheme('editorial');
 })();
 </script>
 </body>

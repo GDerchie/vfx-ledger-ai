@@ -3,359 +3,491 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VFX Budget App</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<title>VFX Budget App — Projects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    background: #07080f;
-    color: #d0d8f0;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+body {
+  background: #f7f4ee;
+  color: #1a1d2e;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  grid-template-rows: 100vh;
+}
 
-  .home-wrap {
-    width: 100%;
-    max-width: 420px;
-    padding: 20px;
-    text-align: center;
-  }
+/* ── LEFT PANEL — brand ── */
+.home-left {
+  background: #1a1d2e;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 52px;
+  position: relative;
+  overflow: hidden;
+}
+.home-left::after {
+  content: 'VFX';
+  position: absolute;
+  right: -24px;
+  bottom: -48px;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 220px;
+  font-weight: 900;
+  letter-spacing: -10px;
+  color: rgba(255,255,255,.035);
+  pointer-events: none;
+  line-height: 1;
+}
+.home-brand {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #c4622a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.home-display {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: clamp(52px, 6.5vw, 92px);
+  font-weight: 900;
+  line-height: .88;
+  letter-spacing: -3px;
+  color: #fff;
+}
+.home-display span { color: #c4622a; }
+.home-desc {
+  font-size: 14px;
+  color: rgba(255,255,255,.42);
+  line-height: 1.7;
+  max-width: 300px;
+  margin-top: 20px;
+}
+.home-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,.4);
+  letter-spacing: .5px;
+}
+.home-status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #3a7a4a;
+  box-shadow: 0 0 6px #3a7a4a;
+  flex-shrink: 0;
+}
+.home-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.home-footer-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.18);
+}
 
-  /* Clapperboard icon */
-  .clap-icon {
-    font-size: 48px;
-    margin-bottom: 14px;
-    display: block;
-    filter: drop-shadow(0 0 12px rgba(120,100,220,.5));
-  }
+/* ── RIGHT PANEL — projects ── */
+.home-right {
+  background: #f7f4ee;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow-y: auto;
+}
 
-  .home-title {
-    font-size: 26px;
-    font-weight: 700;
-    color: #ffffff;
-    letter-spacing: .5px;
-    margin-bottom: 6px;
-  }
+/* Right top bar */
+.home-topbar {
+  padding: 24px 32px 0;
+  border-bottom: 1px solid #d8d2c6;
+  padding-bottom: 20px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.home-topbar-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #a8a09a;
+}
+.home-topbar-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: #c4622a;
+  letter-spacing: .3px;
+}
 
-  .home-sub {
-    font-size: 13px;
-    color: #6870a0;
-    margin-bottom: 10px;
-  }
+/* Project list */
+.home-proj-list {
+  flex: 1;
+  padding: 0;
+  list-style: none;
+}
+.home-proj-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 32px;
+  border-bottom: 1px solid #e8e2d8;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: background .12s;
+  position: relative;
+}
+.home-proj-item:hover { background: rgba(196,98,42,.05); }
+.home-proj-item:hover .proj-actions { opacity: 1; }
+.home-proj-icon {
+  width: 36px; height: 36px;
+  background: #eae5da;
+  border: 1px solid #d8d2c6;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c4622a;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.home-proj-info { flex: 1; min-width: 0; }
+.home-proj-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1d2e;
+  letter-spacing: -.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-proj-meta {
+  font-size: 11px;
+  color: #a8a09a;
+  margin-top: 2px;
+}
+.proj-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity .12s;
+}
+.proj-action-btn {
+  width: 28px; height: 28px;
+  background: none;
+  border: 1px solid #d8d2c6;
+  border-radius: 5px;
+  color: #a8a09a;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .12s;
+}
+.proj-action-btn:hover { border-color: #a83030; color: #a83030; background: rgba(168,48,48,.06); }
+.proj-action-btn.edit:hover { border-color: #c4622a; color: #c4622a; background: rgba(196,98,42,.06); }
 
-  .status-dot {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #52c46a;
-    margin-bottom: 24px;
-  }
-  .status-dot::before {
-    content: '';
-    width: 8px; height: 8px;
-    background: #52c46a;
-    border-radius: 50%;
-    box-shadow: 0 0 6px #52c46a;
-  }
+/* Empty state */
+.home-empty {
+  padding: 48px 32px;
+  text-align: center;
+  color: #a8a09a;
+}
+.home-empty i { font-size: 32px; display: block; margin-bottom: 12px; color: #c4bcb0; }
+.home-empty strong { display: block; font-size: 16px; color: #1a1d2e; margin-bottom: 6px; font-weight: 700; }
 
-  /* Project panel */
-  .proj-panel {
-    background: #10121e;
-    border: 1px solid #1e2240;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 12px;
-  }
+/* New project form */
+.home-new-form {
+  padding: 24px 32px;
+  border-top: 1px solid #d8d2c6;
+  background: #f0ece3;
+  display: none;
+}
+.home-new-form.open { display: block; }
+.home-form-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #7a7468;
+  display: block;
+  margin-bottom: 6px;
+}
+.home-form-input {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #d8d2c6;
+  border-radius: 5px;
+  color: #1a1d2e;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .12s;
+  margin-bottom: 14px;
+}
+.home-form-input:focus { border-color: #c4622a; }
+.home-form-input::placeholder { color: #c4bcb0; }
+.home-form-row { display: flex; gap: 10px; }
+.home-form-row .home-form-group { flex: 1; }
+.home-form-group { margin-bottom: 0; }
 
-  .proj-panel-header {
-    padding: 10px 16px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.8px;
-    text-transform: uppercase;
-    color: #4a5080;
-    border-bottom: 1px solid #1a1d30;
-  }
+/* Bottom buttons */
+.home-bottom {
+  padding: 20px 32px;
+  border-top: 1px solid #d8d2c6;
+  display: flex;
+  gap: 10px;
+}
+.home-btn-primary {
+  flex: 1;
+  background: #1a1d2e;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.home-btn-primary:hover { background: #c4622a; }
+.home-btn-secondary {
+  background: none;
+  border: 1px solid #d8d2c6;
+  border-radius: 5px;
+  padding: 12px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #7a7468;
+  cursor: pointer;
+  transition: all .12s;
+}
+.home-btn-secondary:hover { border-color: #c4622a; color: #c4622a; }
 
-  .proj-list { list-style: none; }
+/* Delete modal */
+.del-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(26,29,46,.55);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.del-overlay.open { display: flex; }
+.del-modal {
+  background: #f7f4ee;
+  border: 1px solid #d8d2c6;
+  border-radius: 10px;
+  padding: 32px;
+  max-width: 380px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(26,29,46,.2);
+}
+.del-icon { font-size: 36px; color: #a83030; margin-bottom: 12px; }
+.del-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #a83030; margin-bottom: 8px; }
+.del-name { font-size: 18px; font-weight: 800; color: #1a1d2e; margin: 12px 0; letter-spacing: -.3px; font-family: 'Barlow Condensed', system-ui, sans-serif; }
+.del-warn { font-size: 12px; color: #7a7468; line-height: 1.6; margin-bottom: 24px; }
+.del-actions { display: flex; gap: 10px; justify-content: center; }
 
-  .proj-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 13px 16px;
-    border-bottom: 1px solid #141628;
-    cursor: pointer;
-    transition: background .15s;
-    text-decoration: none;
-    color: inherit;
-  }
-  .proj-item:last-child { border-bottom: none; }
-  .proj-item:hover { background: #161928; }
-  .proj-item.active-proj { background: #141a2e; }
+/* Edit modal */
+.edit-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(26,29,46,.55); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.edit-overlay.open { display: flex; }
+.edit-modal {
+  background: #f7f4ee;
+  border: 1px solid #d8d2c6;
+  border-radius: 10px;
+  padding: 28px 32px;
+  width: 360px;
+  box-shadow: 0 20px 60px rgba(26,29,46,.2);
+}
+.edit-modal-title {
+  font-size: 18px; font-weight: 800; color: #1a1d2e;
+  margin-bottom: 20px; letter-spacing: -.3px;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+}
 
-  .proj-icon {
-    width: 32px; height: 32px;
-    background: #1a1d35;
-    border: 1px solid #252848;
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    color: #6870c0;
-    font-size: 14px;
-    flex-shrink: 0;
-  }
-
-  .proj-info { flex: 1; text-align: left; }
-  .proj-name {
-    font-size: 13px;
-    font-weight: 700;
-    color: #e0e6ff;
-    letter-spacing: .3px;
-  }
-  .proj-meta {
-    font-size: 11px;
-    color: #4a5080;
-    margin-top: 1px;
-  }
-
-  .proj-actions {
-    display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity .15s;
-  }
-  .proj-item:hover .proj-actions { opacity: 1; }
-  .proj-action-btn {
-    background: none;
-    border: 1px solid #252848;
-    border-radius: 4px;
-    color: #6870a0;
-    width: 26px; height: 26px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all .15s;
-  }
-  .proj-action-btn:hover { border-color: #e05252; color: #e05252; background: #1a1010; }
-  .proj-action-btn.edit-btn:hover { border-color: #f0b429; color: #f0b429; background: #1a1500; }
-
-  .empty-state {
-    padding: 28px 16px;
-    color: #3a4060;
-    font-size: 13px;
-  }
-  .empty-state i { font-size: 28px; display: block; margin-bottom: 8px; }
-
-  /* New project button */
-  .btn-new-project {
-    width: 100%;
-    background: #3d3cbf;
-    border: none;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background .15s;
-    letter-spacing: .3px;
-  }
-  .btn-new-project:hover { background: #4a49d4; }
-
-  /* New project form (inline expand) */
-  .new-proj-form {
-    background: #10121e;
-    border: 1px solid #1e2240;
-    border-radius: 10px;
-    padding: 18px;
-    margin-bottom: 12px;
-    display: none;
-    text-align: left;
-  }
-  .new-proj-form.open { display: block; }
-
-  .form-label-vfx {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: #4a5080;
-    display: block;
-    margin-bottom: 5px;
-  }
-  .form-input-vfx {
-    width: 100%;
-    background: #0d0e1a;
-    border: 1px solid #1e2240;
-    border-radius: 6px;
-    color: #d0d8f0;
-    padding: 8px 12px;
-    font-size: 13px;
-    outline: none;
-    transition: border-color .15s;
-  }
-  .form-input-vfx:focus { border-color: #3d3cbf; }
-  .form-input-vfx::placeholder { color: #2e3260; }
-
-  .form-row { display: flex; gap: 10px; }
-  .form-row .form-group { flex: 1; }
-  .form-group { margin-bottom: 12px; }
-
-  .btn-create {
-    width: 100%;
-    background: #3d3cbf;
-    border: none;
-    color: #fff;
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .15s;
-    margin-top: 4px;
-  }
-  .btn-create:hover { background: #4a49d4; }
-  .btn-cancel {
-    width: 100%;
-    background: none;
-    border: 1px solid #1e2240;
-    color: #4a5080;
-    padding: 9px;
-    border-radius: 6px;
-    font-size: 13px;
-    cursor: pointer;
-    margin-top: 6px;
-    transition: all .15s;
-  }
-  .btn-cancel:hover { border-color: #3d3cbf; color: #d0d8f0; }
-
-  /* Edit modal */
-  .edit-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.7);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-  }
-  .edit-overlay.open { display: flex; }
-  .edit-modal {
-    background: #10121e;
-    border: 1px solid #1e2240;
-    border-radius: 10px;
-    padding: 24px;
-    width: 340px;
-  }
-  .edit-modal h6 { color: #e0e6ff; font-size: 13px; font-weight: 700; margin-bottom: 16px; }
+@media (max-width: 720px) {
+  body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .home-left { padding: 32px 24px; min-height: 220px; }
+  .home-display { font-size: 48px; }
+}
 </style>
 </head>
 <body>
 
-<div class="home-wrap">
-  <!-- Icon + title -->
-  <span class="clap-icon">🎬</span>
-  <div class="home-title">VFX Budget App</div>
-  <div class="home-sub">Select or create a project to begin</div>
-  <div class="status-dot" id="status-txt">Connecting…</div>
-
-  <!-- Recent projects -->
-  <div class="proj-panel">
-    <div class="proj-panel-header">Recent Projects</div>
-    <ul class="proj-list" id="proj-list">
-      <li class="empty-state">
-        <i class="bi bi-folder2-open"></i>No projects yet
-      </li>
-    </ul>
+<!-- LEFT — brand -->
+<div class="home-left">
+  <div class="home-brand">
+    <i class="bi bi-camera-reels"></i>
+    VFX Budget System
   </div>
 
-  <!-- New project form (hidden by default) -->
-  <div class="new-proj-form" id="new-proj-form">
-    <div class="form-group">
-      <label class="form-label-vfx">Project Name</label>
-      <input id="np-name" class="form-input-vfx" placeholder="e.g. SIDEWINDER" autocomplete="off">
+  <div>
+    <div class="home-display">
+      Season<br><span>Budget</span><br>Control
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label-vfx">Season</label>
-        <input id="np-season" class="form-input-vfx" value="S1" placeholder="S1">
-      </div>
-      <div class="form-group">
-        <label class="form-label-vfx">EP Range</label>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <input id="np-ep-start" class="form-input-vfx" value="101" style="width:64px;">
-          <span style="color:#3a4060;font-size:11px;">–</span>
-          <input id="np-ep-end" class="form-input-vfx" value="108" style="width:64px;">
-        </div>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label-vfx">Description (optional)</label>
-      <input id="np-desc" class="form-input-vfx" placeholder="e.g. Feature film VFX budget">
-    </div>
-    <button class="btn-create" onclick="createProject()">Create Project</button>
-    <button class="btn-cancel" onclick="toggleNewForm(false)">Cancel</button>
+    <p class="home-desc">
+      Shot tracking, vendor management, budget forecasting — all in one production tool.
+    </p>
   </div>
 
-  <!-- New project button -->
-  <button class="btn-new-project" id="btn-new" onclick="toggleNewForm(true)">
-    + New Project
-  </button>
+  <div class="home-footer-row">
+    <div class="home-status">
+      <div class="home-status-dot" id="status-dot"></div>
+      <span id="status-txt">Connecting…</span>
+    </div>
+    <div class="home-footer-label">Production Intelligence</div>
+  </div>
 </div>
 
-<!-- Edit modal -->
+<!-- RIGHT — projects -->
+<div class="home-right">
+  <div class="home-topbar">
+    <span class="home-topbar-title">Projects</span>
+    <span class="home-topbar-count" id="proj-count"></span>
+  </div>
+
+  <ul class="home-proj-list" id="proj-list">
+    <li class="home-empty">
+      <i class="bi bi-folder2-open"></i>
+      <strong>No projects yet</strong>
+      Create your first project below
+    </li>
+  </ul>
+
+  <!-- New project form (hidden) -->
+  <div class="home-new-form" id="new-proj-form">
+    <div style="margin-bottom:16px;">
+      <label class="home-form-label">Project Name</label>
+      <input id="np-name" class="home-form-input" placeholder="e.g. SIDEWINDER" autocomplete="off">
+    </div>
+    <div class="home-form-row">
+      <div class="home-form-group">
+        <label class="home-form-label">Season</label>
+        <input id="np-season" class="home-form-input" value="S1" placeholder="S1" style="margin-bottom:0">
+      </div>
+      <div class="home-form-group">
+        <label class="home-form-label">EP Start</label>
+        <input id="np-ep-start" class="home-form-input" value="101" style="margin-bottom:0">
+      </div>
+      <div class="home-form-group">
+        <label class="home-form-label">EP End</label>
+        <input id="np-ep-end" class="home-form-input" value="108" style="margin-bottom:0">
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <label class="home-form-label">Description (optional)</label>
+      <input id="np-desc" class="home-form-input" placeholder="e.g. Feature film VFX budget" style="margin-bottom:0">
+    </div>
+  </div>
+
+  <!-- Bottom CTA -->
+  <div class="home-bottom" id="home-bottom">
+    <button class="home-btn-primary" id="btn-new" onclick="toggleNewForm(true)">
+      <i class="bi bi-plus-lg"></i> New Project
+    </button>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="del-overlay" id="del-overlay" onclick="if(event.target===this)cancelDelete()">
+  <div class="del-modal">
+    <div class="del-icon"><i class="bi bi-exclamation-triangle"></i></div>
+    <div class="del-title">Delete Project</div>
+    <div class="del-name" id="del-name"></div>
+    <div class="del-warn">This will permanently remove the project database and all its data.<br><strong style="color:#a83030">This cannot be undone.</strong></div>
+    <div class="del-actions">
+      <button class="home-btn-secondary" onclick="cancelDelete()">Cancel</button>
+      <button class="home-btn-primary" style="flex:none;padding:12px 24px;background:#a83030;" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
 <div class="edit-overlay" id="edit-overlay" onclick="if(event.target===this)closeEdit()">
   <div class="edit-modal">
-    <h6>Edit Project</h6>
+    <div class="edit-modal-title">Rename Project</div>
     <input type="hidden" id="edit-id">
-    <div class="form-group">
-      <label class="form-label-vfx">Project Name</label>
-      <input id="edit-name" class="form-input-vfx" placeholder="Project name">
+    <div style="margin-bottom:14px;">
+      <label class="home-form-label">Project Name</label>
+      <input id="edit-name" class="home-form-input" style="margin-bottom:0">
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label-vfx">Season</label>
-        <input id="edit-season" class="form-input-vfx">
+    <div class="home-form-row" style="margin-bottom:14px;">
+      <div class="home-form-group">
+        <label class="home-form-label">Season</label>
+        <input id="edit-season" class="home-form-input" style="margin-bottom:0">
       </div>
-      <div class="form-group">
-        <label class="form-label-vfx">Description</label>
-        <input id="edit-desc" class="form-input-vfx">
+      <div class="home-form-group">
+        <label class="home-form-label">Description</label>
+        <input id="edit-desc" class="home-form-input" style="margin-bottom:0">
       </div>
     </div>
-    <button class="btn-create" onclick="saveEdit()">Save Changes</button>
-    <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+    <div class="del-actions">
+      <button class="home-btn-secondary" onclick="closeEdit()">Cancel</button>
+      <button class="home-btn-primary" style="flex:none;padding:12px 24px;" onclick="saveEdit()">Save</button>
+    </div>
   </div>
 </div>
 
 <script>
-async function loadProjects(){
+async function loadProjects() {
   try {
-    const res = await fetch('/api/projects');
+    const res      = await fetch('/api/projects');
     const projects = await res.json();
-    document.getElementById('status-txt').textContent = 'Backend connected';
+
+    document.getElementById('status-dot').style.background = '#3a7a4a';
+    document.getElementById('status-dot').style.boxShadow  = '0 0 6px #3a7a4a';
+    document.getElementById('status-txt').textContent = 'Connected';
+    document.getElementById('proj-count').textContent =
+      projects.length ? `${projects.length} project${projects.length !== 1 ? 's' : ''}` : '';
 
     const list = document.getElementById('proj-list');
-    if(!projects.length){
-      list.innerHTML = `<li class="empty-state">
-        <i class="bi bi-folder2-open"></i>No projects yet — create one below
+    if (!projects.length) {
+      list.innerHTML = `<li class="home-empty">
+        <i class="bi bi-folder2-open"></i>
+        <strong>No projects yet</strong>
+        Create your first project below
       </li>`;
       return;
     }
     list.innerHTML = projects.map(p => `
       <li>
-        <a class="proj-item" href="/projects/${p.id}/open">
-          <div class="proj-icon"><i class="bi bi-grid-3x2-gap-fill"></i></div>
-          <div class="proj-info">
-            <div class="proj-name">${p.name}</div>
-            <div class="proj-meta">${p.season} — ${p.db_filename}</div>
+        <a class="home-proj-item" href="/projects/${p.id}/open">
+          <div class="home-proj-icon"><i class="bi bi-grid-3x2-gap-fill"></i></div>
+          <div class="home-proj-info">
+            <div class="home-proj-name">${p.name}</div>
+            <div class="home-proj-meta">${p.season} · EP ${p.ep_start}–${p.ep_end} · ${p.db_filename}</div>
           </div>
           <div class="proj-actions" onclick="event.preventDefault();event.stopPropagation();">
-            <button class="proj-action-btn edit-btn" title="Rename"
+            <button class="proj-action-btn edit" title="Rename"
                     onclick="openEdit(${p.id},'${p.name}','${p.season}','${(p.description||'').replace(/'/g,"\\'")}')">
               <i class="bi bi-pencil"></i>
             </button>
@@ -367,138 +499,93 @@ async function loadProjects(){
         </a>
       </li>`).join('');
   } catch(e) {
-    document.getElementById('status-txt').textContent = 'Backend error';
-    document.getElementById('status-txt').style.color = '#e05252';
+    document.getElementById('status-dot').style.background = '#a83030';
+    document.getElementById('status-dot').style.boxShadow  = 'none';
+    document.getElementById('status-txt').textContent = 'Connection error';
   }
 }
 
-function toggleNewForm(open){
+function toggleNewForm(open) {
   document.getElementById('new-proj-form').classList.toggle('open', open);
-  document.getElementById('btn-new').style.display = open ? 'none' : '';
-  if(open) document.getElementById('np-name').focus();
-  else {
-    document.getElementById('np-name').value = '';
-    document.getElementById('np-season').value = 'S1';
+  const bottom = document.getElementById('home-bottom');
+  if (open) {
+    bottom.innerHTML = `
+      <button class="home-btn-primary" onclick="createProject()"><i class="bi bi-check-lg"></i> Create Project</button>
+      <button class="home-btn-secondary" onclick="toggleNewForm(false)">Cancel</button>`;
+    document.getElementById('np-name').focus();
+  } else {
+    bottom.innerHTML = `<button class="home-btn-primary" id="btn-new" onclick="toggleNewForm(true)"><i class="bi bi-plus-lg"></i> New Project</button>`;
+    ['np-name','np-desc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('np-season').value   = 'S1';
     document.getElementById('np-ep-start').value = '101';
-    document.getElementById('np-ep-end').value = '108';
-    document.getElementById('np-desc').value = '';
+    document.getElementById('np-ep-end').value   = '108';
   }
 }
 
-async function createProject(){
+async function createProject() {
   const name    = document.getElementById('np-name').value.trim();
   const season  = document.getElementById('np-season').value.trim() || 'S1';
   const epStart = parseInt(document.getElementById('np-ep-start').value) || 101;
-  const epEnd   = parseInt(document.getElementById('np-ep-end').value) || 108;
+  const epEnd   = parseInt(document.getElementById('np-ep-end').value)   || 108;
   const desc    = document.getElementById('np-desc').value.trim();
-
-  if(!name){ document.getElementById('np-name').focus(); return; }
-
-  const res = await fetch('/api/projects', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({name, season, ep_start: epStart, ep_end: epEnd, description: desc})
+  if (!name) { document.getElementById('np-name').focus(); return; }
+  const res  = await fetch('/api/projects', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, season, ep_start: epStart, ep_end: epEnd, description: desc })
   });
   const data = await res.json();
-  if(data.error){ alert(data.error); return; }
-
+  if (data.error) { alert(data.error); return; }
   toggleNewForm(false);
   await loadProjects();
 }
 
-let _deleteTarget = null;
-
-function deleteProject(id, name){
-  _deleteTarget = { id, name };
-  document.getElementById('del-proj-name').textContent = name;
-  document.getElementById('delete-modal').style.display = 'flex';
+let _delTarget = null;
+function deleteProject(id, name) {
+  _delTarget = { id, name };
+  document.getElementById('del-name').textContent = name;
+  document.getElementById('del-overlay').classList.add('open');
 }
-
-async function confirmDelete(){
-  if (!_deleteTarget) return;
-  document.getElementById('delete-modal').style.display = 'none';
-  await fetch(`/api/projects/${_deleteTarget.id}`, {method:'DELETE'});
-  _deleteTarget = null;
+function cancelDelete() {
+  _delTarget = null;
+  document.getElementById('del-overlay').classList.remove('open');
+}
+async function confirmDelete() {
+  if (!_delTarget) return;
+  document.getElementById('del-overlay').classList.remove('open');
+  await fetch(`/api/projects/${_delTarget.id}`, { method: 'DELETE' });
+  _delTarget = null;
   await loadProjects();
 }
 
-function cancelDelete(){
-  _deleteTarget = null;
-  document.getElementById('delete-modal').style.display = 'none';
-}
-
-function openEdit(id, name, season, desc){
+function openEdit(id, name, season, desc) {
   document.getElementById('edit-id').value     = id;
   document.getElementById('edit-name').value   = name;
   document.getElementById('edit-season').value = season;
   document.getElementById('edit-desc').value   = desc;
   document.getElementById('edit-overlay').classList.add('open');
 }
-
-function closeEdit(){
-  document.getElementById('edit-overlay').classList.remove('open');
-}
-
-async function saveEdit(){
+function closeEdit() { document.getElementById('edit-overlay').classList.remove('open'); }
+async function saveEdit() {
   const id     = document.getElementById('edit-id').value;
   const name   = document.getElementById('edit-name').value.trim();
   const season = document.getElementById('edit-season').value.trim();
   const desc   = document.getElementById('edit-desc').value.trim();
-  if(!name) return;
+  if (!name) return;
   await fetch(`/api/projects/${id}`, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({name, season, description: desc})
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, season, description: desc })
   });
   closeEdit();
   await loadProjects();
 }
 
-// Enter key on name field
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('np-name').addEventListener('keydown', e => {
-    if(e.key === 'Enter') createProject();
+    if (e.key === 'Enter') createProject();
   });
   loadProjects();
 });
 </script>
-
-<!-- Delete Confirmation Modal -->
-<div id="delete-modal" style="
-  display:none; position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,.7); align-items:center; justify-content:center;">
-  <div style="
-    background:#12152a; border:1px solid #e05252; border-radius:8px;
-    padding:28px 32px; max-width:380px; width:90%; text-align:center;
-    box-shadow:0 8px 40px rgba(0,0,0,.6);">
-    <div style="font-size:32px; margin-bottom:10px;">&#9888;</div>
-    <div style="color:#e05252; font-weight:700; font-size:14px; margin-bottom:8px; letter-spacing:.5px;">
-      DELETE PROJECT
-    </div>
-    <div style="color:#d0d8f0; font-size:12px; margin-bottom:6px;">
-      You are about to permanently delete:
-    </div>
-    <div id="del-proj-name" style="
-      color:#f0b429; font-weight:700; font-size:15px;
-      margin-bottom:12px; word-break:break-all;"></div>
-    <div style="color:#7880a0; font-size:11px; margin-bottom:22px;">
-      This will permanently remove the .vfxdb file and all its data.<br>
-      <strong style="color:#e05252;">This action cannot be undone.</strong>
-    </div>
-    <div style="display:flex; gap:12px; justify-content:center;">
-      <button onclick="cancelDelete()" style="
-        background:#1a1d35; border:1px solid #4a5080; color:#d0d8f0;
-        padding:8px 24px; border-radius:5px; font-size:12px;
-        cursor:pointer; font-weight:600; letter-spacing:.4px;">
-        CANCEL
-      </button>
-      <button onclick="confirmDelete()" style="
-        background:#2a0808; border:1px solid #e05252; color:#e05252;
-        padding:8px 24px; border-radius:5px; font-size:12px;
-        cursor:pointer; font-weight:700; letter-spacing:.4px;">
-        YES, DELETE
-      </button>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>
