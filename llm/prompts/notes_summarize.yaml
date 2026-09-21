@@ -1,0 +1,26 @@
+name: notes_summarize
+version: 1
+output_schema:
+  type: object
+  properties:
+    summary:
+      type: string
+    priorities:
+      type: array
+      items:
+        type: string
+    unresolved_count:
+      type: integer
+retry_on_parse_fail: false
+template: |
+  VFX Production Notes — {project} (Season {season})
+  Total notes: {total_count}  |  Unresolved: {unresolved_count}
+
+  Notes:
+  {notes_text}
+  ---
+  Summarize these VFX production notes in 2–3 sentences, then list the top 3 action priorities
+  as short bullet points. Focus on unresolved blockers, budget or delivery risk, and decisions
+  that need to be made.
+  Reply with ONLY valid JSON:
+  {"summary": "…", "priorities": ["…", "…", "…"], "unresolved_count": 5}

@@ -1,0 +1,15 @@
+name: budget_gap_analysis
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  EP{ep} VFX Budget:
+    Total shots: {total_shots}  |  EST: ${total_est}  |  EFC: ${total_efc}
+    Variance: ${variance}
+
+  Top over-budget shots:
+  {top_shots}
+  Shot type breakdown (type: count, total_est):
+  {type_breakdown}
+  ---
+  Identify the top 3 specific cost reduction opportunities for this episode. Be concrete - name shot types, vendors, or categories. Use markdown bullets. 3 bullets maximum, 1 sentence each.

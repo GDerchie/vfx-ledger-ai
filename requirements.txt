@@ -1,0 +1,20 @@
+# VFX Budget System — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# Core web framework
+Flask==3.1.0
+
+# Optional: API response caching (improves distribution page performance)
+flask-caching==2.3.0
+
+# HTTP client — used for Slack alerts and OpenAI-compatible LLM calls
+requests==2.32.3
+
+# Excel import/export
+openpyxl==3.1.5
+
+# PDF guide generation (generate_tutorial.py, generate_security_guide.py, etc.)
+reportlab==4.2.5
+
+# Word document generation (generate_update_tutorial_docx.py)
+python-docx>=1.1.0

@@ -1,0 +1,26 @@
+name: cost_est
+version: 1
+output_schema:
+  type: object
+  properties:
+    estimate:
+      type: number
+    tier:
+      type: string
+      enum: [simple, medium, heavy]
+    reasoning:
+      type: string
+retry_on_parse_fail: true
+template: |
+  VFX Type: {shot_type}
+  VFX Description: {vfx_desc}
+  Location: {location}
+  {actuals_context}
+  ---
+  Estimate the VFX cost for this single shot in USD.
+  Reference tiers (use only when no project actuals are available above):
+    Simple (Roto/Paint/Grade): $3,000-$15,000
+    Medium (Comp/Extension/FX): $15,000-$60,000
+    Heavy (CG/Creature/Crowd): $60,000-$200,000+
+  When project actuals are shown above, anchor your estimate to that range.
+  Reply with ONLY valid JSON: {{"estimate": 25000, "tier": "medium", "reasoning": "one sentence"}}

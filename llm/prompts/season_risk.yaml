@@ -1,0 +1,15 @@
+name: season_risk
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Season VFX Budget Summary:
+    Total shots: {total_shots}  |  Season EST: ${total_est}  |  EFC: ${total_efc}
+    Season Variance: ${variance}
+
+  Per-episode status:
+  {ep_breakdown}
+  Top vendors:
+  {vendor_breakdown}
+  ---
+  Write a 3-paragraph executive risk memo for the showrunner. Paragraph 1: overall budget status. Paragraph 2: top 2-3 specific risks by episode or vendor. Paragraph 3: recommended actions. Be direct, factual, no fluff.

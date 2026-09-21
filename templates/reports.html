@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}Reports – VFX Budget System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3">
+  <div>
+    <h5 class="mb-0 text-warning fw-bold">REPORTS</h5>
+    <div class="text-muted" style="font-size:11px;">Generate season, episode, and vendor reports</div>
+  </div>
+</div>
+
+<!-- Report Type Cards -->
+<div class="row g-2 mb-3" id="type-cards">
+  <div class="col-md-4">
+    <div class="report-card" id="card-season_summary" onclick="selectType('season_summary')">
+      <div class="report-card-icon"><i class="bi bi-bar-chart-line"></i></div>
+      <div class="report-card-title">Season Summary</div>
+      <div class="report-card-desc">Full season KPIs, per-episode budget table, vendor breakdown, risk scores</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="report-card" id="card-ep_status" onclick="selectType('ep_status')">
+      <div class="report-card-icon"><i class="bi bi-film"></i></div>
+      <div class="report-card-title">Episode Status</div>
+      <div class="report-card-desc">Single-episode detail: shot list, type breakdown, vendor awards</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="report-card" id="card-vendor_performance" onclick="selectType('vendor_performance')">
+      <div class="report-card-icon"><i class="bi bi-receipt"></i></div>
+      <div class="report-card-title">Vendor Performance</div>
+      <div class="report-card-desc">Vendor-centric view: awards, invoices, capacity, performance scores</div>
+    </div>
+  </div>
+</div>
+
+<!-- Options Bar -->
+<div style="background:#0d0e18;border:1px solid #1e2240;border-radius:5px;padding:12px 14px;margin-bottom:14px;">
+  <div class="d-flex flex-wrap align-items-center gap-3">
+
+    <!-- EP selector (ep_status only) -->
+    <div id="ep-selector-wrap" style="display:none;">
+      <label style="font-size:10px;color:#6870a0;font-weight:700;letter-spacing:.5px;display:block;margin-bottom:3px;">EPISODE</label>
+      <select id="ep-select" class="form-select form-select-sm"
+              style="background:#12152a;border-color:#2e3050;color:#d0d8f0;font-size:12px;width:90px;">
+        <option value="">—</option>
+      </select>
+    </div>
+
+    <!-- Format -->
+    <div>
+      <label style="font-size:10px;color:#6870a0;font-weight:700;letter-spacing:.5px;display:block;margin-bottom:3px;">FORMAT</label>
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn fmt-btn active" id="fmt-json" onclick="setFmt('json')">JSON</button>
+        <button type="button" class="btn fmt-btn"        id="fmt-pdf"  onclick="setFmt('pdf')">PDF</button>
+      </div>
+    </div>
+
+    <!-- AI Narrative toggle -->
+    <div class="d-flex align-items-center gap-2" style="margin-top:14px;">
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="narrative-toggle" style="cursor:pointer;">
+        <label class="form-check-label" for="narrative-toggle"
+               style="font-size:11px;color:#7880a0;cursor:pointer;">
+          ✨ AI Narrative
+        </label>
+      </div>
+    </div>
+
+    <!-- Generate button -->
+    <div class="ms-auto">
+      <button class="btn btn-warning btn-sm fw-bold" id="generate-btn" onclick="generateReport()" disabled>
+        <i class="bi bi-file-earmark-text me-1"></i>Generate Report
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Status / Results -->
+<div id="report-status" style="display:none;font-size:11px;color:#6870a0;margin-bottom:8px;">
+  <span class="spinner-border spinner-border-sm me-2" style="width:12px;height:12px;"></span>
+  Generating…
+</div>
+
+<!-- PDF download link -->
+<div id="pdf-download-wrap" style="display:none;margin-bottom:12px;">
+  <a id="pdf-download-link" href="#" class="btn btn-sm btn-outline-warning">
+    <i class="bi bi-download me-1"></i>Download PDF
+  </a>
+</div>
+
+<!-- JSON results -->
+<div id="json-results" style="display:none;">
+  <div style="font-size:10px;font-weight:700;letter-spacing:.6px;color:#4a5080;margin-bottom:6px;">REPORT DATA</div>
+  <pre id="json-output" style="background:#0a0b14;border:1px solid #1e2240;border-radius:4px;
+       padding:12px 14px;font-size:11px;color:#d0d8f0;overflow-x:auto;
+       max-height:600px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;"></pre>
+</div>
+
+<style>
+.report-card {
+  background: #0d0e18;
+  border: 1px solid #1e2240;
+  border-radius: 6px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  height: 100%;
+}
+.report-card:hover { border-color: #3a4070; background: #10121e; }
+.report-card.active { border-color: #f0b429; background: #14120a; }
+.report-card-icon { font-size: 22px; color: #4a5080; margin-bottom: 6px; }
+.report-card.active .report-card-icon { color: #f0b429; }
+.report-card-title { font-size: 12px; font-weight: 700; color: #d0d8f0; margin-bottom: 4px; letter-spacing: .3px; }
+.report-card.active .report-card-title { color: #f0b429; }
+.report-card-desc { font-size: 10px; color: #4a5080; line-height: 1.5; }
+.fmt-btn {
+  background: #12152a; border-color: #2e3050; color: #7880a0;
+  font-size: 11px; font-weight: 600; letter-spacing: .4px;
+}
+.fmt-btn.active { background: #1e2240; border-color: #4a9cf0; color: #4a9cf0; }
+.fmt-btn:hover:not(.active) { background: #1a1d35; color: #d0d8f0; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _selectedType = null;
+let _selectedFmt  = 'json';
+
+(async function loadEps() {
+  try {
+    const res = await fetch('/api/episodes');
+    if (!res.ok) return;
+    const eps = await res.json();
+    const sel = document.getElementById('ep-select');
+    eps.forEach(ep => {
+      const opt = document.createElement('option');
+      opt.value = ep; opt.textContent = 'EP ' + ep;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+})();
+
+function selectType(type) {
+  _selectedType = type;
+  document.querySelectorAll('.report-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + type).classList.add('active');
+  document.getElementById('ep-selector-wrap').style.display =
+    (type === 'ep_status') ? 'block' : 'none';
+  document.getElementById('generate-btn').disabled = false;
+  clearResults();
+}
+
+function setFmt(fmt) {
+  _selectedFmt = fmt;
+  document.getElementById('fmt-json').classList.toggle('active', fmt === 'json');
+  document.getElementById('fmt-pdf').classList.toggle('active',  fmt === 'pdf');
+  clearResults();
+}
+
+function clearResults() {
+  document.getElementById('json-results').style.display = 'none';
+  document.getElementById('pdf-download-wrap').style.display = 'none';
+  document.getElementById('report-status').style.display = 'none';
+}
+
+async function generateReport() {
+  if (!_selectedType) return;
+
+  const ep        = document.getElementById('ep-select').value;
+  const narrative = document.getElementById('narrative-toggle').checked;
+
+  if (_selectedType === 'ep_status' && !ep) {
+    alert('Please select an episode for the EP Status report.');
+    return;
+  }
+
+  clearResults();
+  document.getElementById('report-status').style.display = 'block';
+  document.getElementById('generate-btn').disabled = true;
+
+  const body = { type: _selectedType, format: _selectedFmt, narrative };
+  if (ep) body.ep = parseInt(ep, 10);
+
+  try {
+    if (_selectedFmt === 'pdf') {
+      const res = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      document.getElementById('report-status').style.display = 'none';
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        document.getElementById('json-output').textContent = JSON.stringify(err, null, 2);
+        document.getElementById('json-results').style.display = 'block';
+      } else {
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.getElementById('pdf-download-link');
+        const cd   = res.headers.get('Content-Disposition') || '';
+        const m    = cd.match(/filename="?([^"]+)"?/);
+        a.href     = url;
+        a.download = m ? m[1] : 'report.pdf';
+        document.getElementById('pdf-download-wrap').style.display = 'block';
+        a.click();
+      }
+    } else {
+      const res = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      document.getElementById('report-status').style.display = 'none';
+      document.getElementById('json-output').textContent = JSON.stringify(data, null, 2);
+      document.getElementById('json-results').style.display = 'block';
+    }
+  } catch(e) {
+    document.getElementById('report-status').style.display = 'none';
+    document.getElementById('json-output').textContent = 'Error: ' + e.message;
+    document.getElementById('json-results').style.display = 'block';
+  }
+
+  document.getElementById('generate-btn').disabled = false;
+}
+</script>
+{% endblock %}

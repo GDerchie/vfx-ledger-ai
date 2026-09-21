@@ -1,0 +1,33 @@
+name: bid_analysis
+version: 1
+output_schema:
+  type: object
+  properties:
+    outliers:
+      type: array
+      items:
+        type: string
+    recommendation:
+      type: string
+    risk_flag:
+      type: string
+      enum: [low, medium, high]
+retry_on_parse_fail: true
+template: |
+  Bid comparison data for EP{ep}:
+  Total shots with bids: {shot_count}
+  Average spread (max/min ratio): {avg_spread}x
+
+  Top outliers by overbid risk (EFC vs min bid):
+  {outlier_list}
+
+  Vendor award distribution:
+  {vendor_awards}
+  ---
+  Analyze this bid data for a VFX production. Identify:
+  1. Any bids that look anomalous (too high or suspiciously low)
+  2. Whether the current vendor award distribution creates concentration risk
+  3. Overall bid health
+
+  Reply with ONLY valid JSON:
+  {"outliers": ["scene X: vendor bid 3x market"], "recommendation": "one paragraph", "risk_flag": "medium"}

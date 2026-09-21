@@ -1,0 +1,31 @@
+name: scenario_advice
+version: 1
+output_schema:
+  type: object
+  properties:
+    recommended_scenario:
+      type: string
+    reasoning:
+      type: string
+    savings_potential:
+      type: number
+    risk_level:
+      type: string
+      enum: [low, medium, high]
+retry_on_parse_fail: true
+template: |
+  Budget scenarios for EP{ep}:
+  Current EFC: ${current_efc}
+  Current EST: ${current_est}
+  Variance: ${variance} ({variance_pct}%)
+
+  Scenarios being considered:
+  {scenarios_text}
+
+  Season risk context:
+  {risk_context}
+  ---
+  As a VFX production finance advisor, recommend which budget scenario best balances risk
+  and savings for this episode. Consider the season-level variance context.
+  Reply with ONLY valid JSON:
+  {"recommended_scenario": "Conservative", "reasoning": "one paragraph", "savings_potential": 45000, "risk_level": "medium"}

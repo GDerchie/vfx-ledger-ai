@@ -6,12 +6,16 @@
 <!-- Header -->
 <div class="d-flex align-items-center mb-3 gap-3">
   <div>
-    <h5 class="mb-0 text-warning fw-bold">EFC SUMMARY &amp; DISTRIBUTION</h5>
-    <div class="text-muted" style="font-size:11px;">VFX ESTIMATES Ep101–108 (Asset + Shot) &nbsp;|&nbsp; <span class="version-tag">v2.3</span></div>
+    <h5 class="mb-0 text-warning fw-bold" id="dist-panel-header">EFC SUMMARY &amp; DISTRIBUTION</h5>
+    <div class="text-muted" style="font-size:11px;">VFX ESTIMATES Ep101–108 (Asset + Shot) &nbsp;|&nbsp; <span class="version-tag">v05</span></div>
   </div>
   <div class="ms-auto d-flex gap-2">
     <button class="btn-vfx btn-vfx-gold" onclick="refreshDist()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
     <button class="btn-vfx btn-vfx-blue" onclick="exportCSV()"><i class="bi bi-download me-1"></i>Export CSV</button>
+    <a class="btn-vfx" href="/api/export/distribution.xlsx"
+       style="background:#1a3a20;border-color:#52c46a;color:#52c46a;text-decoration:none;">
+      <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+    </a>
   </div>
 </div>
 
@@ -43,6 +47,21 @@
   </div>
 </div>
 
+<!-- ── PREDICTIVE EFC OVERLAY ───────────────────────────────────────────────── -->
+<div class="vfx-panel mb-3" id="pred-panel">
+  <div class="vfx-panel-header d-flex align-items-center gap-2">
+    <span><i class="bi bi-graph-up-arrow me-2"></i>PREDICTIVE EFC — DELIVERY RATIO MODEL</span>
+    <button onclick="togglePredPanel()" id="pred-toggle-btn"
+            style="margin-left:auto;background:none;border:1px solid #2a3060;color:#4a9cf0;
+            font-size:9px;padding:2px 8px;border-radius:3px;cursor:pointer;">hide</button>
+  </div>
+  <div id="pred-body" class="vfx-panel-body" style="padding:12px;">
+    <div id="pred-content">
+      <div style="color:#4a5080;font-size:10px;">Loading predictive model…</div>
+    </div>
+  </div>
+</div>
+
 <!-- Section 1 – EFC Summary per EP -->
 <div class="vfx-panel">
   <div class="vfx-panel-header">
@@ -61,9 +80,11 @@
             <th>EST BUDGET (asset+ep)</th>
             <th>EFC Budget (asset+ep)</th>
             <th>VARIANCE</th>
+            <th>RISK</th>
             <th>STATUS</th>
             <th>EST REDUCTION (suggestion)</th>
             <th>NOTES</th>
+            <th style="width:36px;"></th>
           </tr>
         </thead>
         <tbody id="efc-body">
@@ -78,7 +99,7 @@
             <td id="tot-est">—</td>
             <td id="tot-efc">—</td>
             <td id="tot-var">—</td>
-            <td colspan="3">—</td>
+            <td colspan="4">—</td>
           </tr>
         </tfoot>
       </table>
@@ -140,6 +161,14 @@
 </div>
 
 <style>
+.risk-badge {
+  display:inline-block;font-size:9px;font-weight:700;letter-spacing:.6px;
+  padding:2px 7px;border-radius:3px;white-space:nowrap;
+}
+.risk-safe     { background:rgba(82,196,106,.15); color:#52c46a; border:1px solid rgba(82,196,106,.3); }
+.risk-watch    { background:rgba(240,180,41,.15);  color:#f0b429; border:1px solid rgba(240,180,41,.3); }
+.risk-atrisk   { background:rgba(224,130,50,.15);  color:#e08232; border:1px solid rgba(224,130,50,.3); }
+.risk-highrisk { background:rgba(224,82,82,.2);    color:#e05252; border:1px solid rgba(224,82,82,.4); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .row-auto-sync { background: #141824 !important; }
 .row-auto-sync .tabulator-cell { color: #8090b8 !important; }
@@ -157,7 +186,130 @@
   vertical-align: middle;
   cursor: default;
 }
+
+/* ── Episode group headers ─────────────────────────────────────────── */
+.tabulator-group.tabulator-group-level-0 {
+  background: #111525 !important;
+  border-top: 2px solid #2a3060 !important;
+  border-bottom: 1px solid #1e2445 !important;
+  padding: 0 !important;
+  margin-top: 4px;
+}
+.tabulator-group.tabulator-group-level-0:first-child {
+  border-top: 1px solid #2a3060 !important;
+  margin-top: 0;
+}
+.tabulator-group-header { padding: 0 !important; }
+.ep-group-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  flex-wrap: wrap;
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+}
+.ep-group-hdr:hover { background: rgba(240,180,41,.05); }
+.ep-hdr-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: rgba(240,180,41,.15);
+  color: #f0b429;
+  border: 1px solid rgba(240,180,41,.35);
+  border-radius: 3px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.ep-hdr-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #d0d8f8;
+  letter-spacing: .5px;
+  margin-right: 4px;
+}
+.ep-hdr-divider {
+  color: #2e3050;
+  font-size: 16px;
+  font-weight: 100;
+}
+.ep-hdr-stat {
+  font-size: 11px;
+  color: #8090b8;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.ep-hdr-stat b { color: #d0d8f8; }
+.ep-hdr-key {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: #5060a0;
+  margin-right: 3px;
+}
+.ep-var-neg b { color: #e05252 !important; }
+.ep-var-pos b { color: #52c46a !important; }
+.ep-var-zero b { color: #8090b8 !important; }
+.ep-hdr-status {
+  font-size: 9px;
+  color: #8090b8;
+  border: 1px solid #2e3050;
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-left: 4px;
+}
+.ep-hdr-sync {
+  font-size: 9px;
+  color: #4e9af1;
+  border: 1px solid rgba(78,154,241,.3);
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-left: 4px;
+}
+/* Tabulator built-in group arrow — styled to match theme */
+.tabulator-group-toggle .tabulator-arrow {
+  border-top-color: #4a5080 !important;
+}
+.tabulator-group.tabulator-group-collapsed .tabulator-arrow {
+  border-top-color: transparent !important;
+  border-bottom-color: #4a5080 !important;
+}
 </style>
+
+<!-- ── AI Narrative Modal ─────────────────────────────────────────────────── -->
+<div class="modal fade" id="narrativeModal" tabindex="-1">
+  <div class="modal-dialog modal-lg" style="margin-top:80px;">
+    <div class="modal-content" style="background:#0d0e18;border:1px solid #2e3050;">
+      <div class="modal-header" style="background:#12152a;border-bottom:1px solid #2e3050;padding:10px 16px;">
+        <div>
+          <span style="font-size:13px;font-weight:700;color:#f0b429;">✨ EP <span id="narr-ep-title"></span> — Producer Memo</span>
+          <div style="font-size:10px;color:#4a5080;margin-top:2px;">AI-generated budget status memo</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px;">
+        <!-- budget context strip -->
+        <div id="narr-context" style="font-size:10px;color:#6870a0;background:#0a0c18;
+             border:1px solid #1e2240;border-radius:4px;padding:8px 12px;margin-bottom:14px;
+             display:flex;gap:16px;flex-wrap:wrap;"></div>
+        <!-- generate button -->
+        <button class="ai-btn" id="narr-gen-btn" onclick="narrativeGenerate()"
+                style="font-size:12px;padding:4px 14px;">✨ Generate Memo</button>
+        <!-- streaming preview -->
+        <div class="ai-preview" id="narr-preview" style="margin-top:10px;max-height:260px;font-size:13px;line-height:1.7;"></div>
+        <!-- actions -->
+        <div class="ai-actions" id="narr-actions" style="margin-top:10px;">
+          <button class="ai-accept" id="narr-copy-btn" onclick="narrativeCopy()">
+            <i class="bi bi-clipboard me-1"></i>Copy
+          </button>
+          <button class="ai-discard" onclick="narrativeDiscard()">Discard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- toast -->
 <div class="vfx-toast" id="toast"></div>
@@ -172,6 +324,10 @@ const STATUS_OPTIONS = [
 
 let distData = [];
 let seqTable = null;
+
+// ── Save guard + indicator (Opt #8 / #11) ────────────────────────────────────
+let _distGuard     = null;
+let _distIndicator = null;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function fmt$(v){ return v==null||v===''?'—':'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
@@ -233,6 +389,7 @@ function renderEFCTable(data){
           <span class="asset-pill">A+S</span></span>` : ''}
       </td>
       <td class="${varClass(variance)}">${varFmt(variance)}</td>
+      <td><span class="risk-badge risk-${row.risk_cls||'safe'}" title="Risk score: ${((row.risk_score||0)*100).toFixed(0)}%">${row.risk_label||'—'}</span></td>
       <td>
         <select class="vfx-input" data-ep="${row.ep}" data-field="status"
                 onchange="saveMeta(this)" style="width:170px;">
@@ -246,6 +403,10 @@ function renderEFCTable(data){
       <td>
         <span contenteditable="true" data-ep="${row.ep}" data-field="notes"
               onblur="saveMeta(this)">${row.notes||''}</span>
+      </td>
+      <td style="text-align:center;">
+        <button class="ai-btn" title="✨ AI Producer Memo"
+                onclick='openNarrativeModal(${JSON.stringify(row)})'>✨</button>
       </td>`;
     tbody.appendChild(tr);
   });
@@ -272,11 +433,16 @@ async function saveMeta(el){
   const ep    = el.dataset.ep;
   const field = el.dataset.field;
   const value = el.tagName === 'SELECT' ? el.value : el.textContent.trim();
-  await fetch(`/api/ep_meta/${ep}`, {
-    method:'PUT',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({[field]: value})
-  });
+  _distGuard?.setPending(true); _distIndicator?.saving();
+  try {
+    await fetch(`/api/ep_meta/${ep}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[field]: value})
+    });
+    _distIndicator?.saved();
+  } catch(e) { _distIndicator?.error(); }
+  finally { _distGuard?.setPending(false); }
   toast('Saved');
 }
 
@@ -285,25 +451,55 @@ function buildSeqTable(data){
   if(seqTable){ seqTable.destroy(); seqTable=null; }
 
   seqTable = new Tabulator('#seq-table', {
+    ...TABULATOR_PERF,
     data: data,
     layout: 'fitDataFill',
-    height: '420px',
+    maxHeight: '70vh',
     movableRows: false,
+    groupBy: 'ep',
+    groupStartOpen: true,
+    groupToggleElement: 'header',
+    groupHeader: function(value, count, data, group){
+      // data = array of plain row data objects (NOT Row components)
+      const epRow = distData.find(r => r.ep == value) || {};
+      const variance = (epRow.efc_budget||0) - (epRow.est_budget||0);
+      const varCls = variance > 0 ? 'ep-var-neg' : variance < 0 ? 'ep-var-pos' : 'ep-var-zero';
+      const varStr = (variance > 0 ? '+' : '') + fmt$(variance);
+      const riskHtml = epRow.risk_label
+        ? `<span class="risk-badge risk-${epRow.risk_cls||'safe'}" style="margin-left:6px;">${epRow.risk_label}</span>`
+        : '';
+      const statusHtml = epRow.status
+        ? `<span class="ep-hdr-status">${epRow.status}</span>`
+        : '';
+      const syncCount = Array.isArray(data) ? data.filter(r => r.auto_sync).length : 0;
+      const syncBadge = syncCount > 0
+        ? `<span class="ep-hdr-sync"><i class="bi bi-arrow-repeat"></i> ${syncCount} synced</span>`
+        : '';
+      return `
+        <div class="ep-group-hdr">
+          <span class="ep-hdr-label"><a href="/ep/${value}" style="color:#f0b429;text-decoration:none;">EPISODE ${value}</a></span>
+          <span class="ep-hdr-divider">|</span>
+          <span class="ep-hdr-stat"><span class="ep-hdr-key">Sequences</span> <b>${count}</b></span>
+          <span class="ep-hdr-stat"><span class="ep-hdr-key">Est. Shots</span> <b>${epRow.est_shots||'—'}</b></span>
+          <span class="ep-hdr-stat"><span class="ep-hdr-key">EST</span> <b>${fmt$(epRow.est_budget)}</b></span>
+          <span class="ep-hdr-stat"><span class="ep-hdr-key">EFC</span> <b>${fmt$(epRow.efc_budget)}</b></span>
+          <span class="ep-hdr-stat ${varCls}"><span class="ep-hdr-key">VAR</span> <b>${varStr}</b></span>
+          ${riskHtml}${statusHtml}${syncBadge}
+        </div>`;
+    },
     rowFormatter: row => {
       if(row.getData().auto_sync)
         row.getElement().classList.add('row-auto-sync');
     },
     columnDefaults: { headerSort: true, resizable: true },
     columns: [
-      { title:'EP', field:'ep', width:60, hozAlign:'center',
-        formatter: c => `<a href="/ep/${c.getValue()}" style="color:#f0b429;font-weight:700;">${c.getValue()}</a>`,
-        editor:'number', editorParams:{min:101,max:110}, cellEdited: saveSeqCell },
+      { title:'EP', field:'ep', width:60, hozAlign:'center', visible: false },
       { title:'', field:'auto_sync', width:30, hozAlign:'center', headerSort:false,
         formatter: c => c.getValue()
           ? '<i class="bi bi-arrow-repeat" title="Auto-synced from EP shots" style="color:#4e9af1;font-size:11px;"></i>'
           : '',
       },
-      { title:'SCENE #', field:'seq_name', width:90, hozAlign:'center',
+      { title:'SCENE #', field:'seq_name', width:110, hozAlign:'center',
         formatter: c => `<span style="color:#a8b4e0;font-weight:600;">${c.getValue()||''}</span>`,
         editor:'input', cellEdited: saveSeqCell },
       { title:'LOC', field:'location', width:130,
@@ -345,8 +541,16 @@ function buildSeqTable(data){
 function filterSeqTable(){
   const ep = document.getElementById('seq-ep-filter').value;
   if(!seqTable) return;
-  if(ep) seqTable.setFilter('ep', '=', parseInt(ep));
-  else seqTable.clearFilter();
+  if(ep){
+    // Filter rows then expand only the matching group
+    seqTable.setFilter('ep', '=', parseInt(ep));
+    seqTable.getGroups().forEach(g => {
+      if(String(g.getKey()) === ep) g.show();
+    });
+  } else {
+    seqTable.clearFilter();
+    seqTable.getGroups().forEach(g => g.show());
+  }
 }
 
 function varFormatter(cell){
@@ -371,7 +575,13 @@ async function saveSeqCell(cell){
 }
 
 async function addSeqRow(){
-  const ep = parseInt(prompt('Episode number (101-108):')) || 101;
+  // Build EP options from loaded distData or fallback range
+  const eps = distData.length
+    ? distData.map(r => r.ep)
+    : Array.from({length:8},(_,i)=>101+i);
+  const epStr = prompt('Episode number:\n' + eps.join('  '), eps[0]);
+  const ep = parseInt(epStr);
+  if(!ep || !eps.includes(ep)){ toast('Invalid EP'); return; }
   const res = await fetch('/api/sequences', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ep})
@@ -380,7 +590,7 @@ async function addSeqRow(){
   seqTable.addRow({id: data.id, ep, seq_name:'', location:'', omit:false,
     est_shots:0, current_cut:0, lbudget:0, efc:0, variance_val:0,
     status:'', est_reductions:'', est_ctd:0, turnover_deadline:'', notes:''});
-  toast('Row added');
+  toast(`Row added to EP ${ep}`);
 }
 
 async function deleteSeq(row){
@@ -429,11 +639,158 @@ async function syncEPs(eps, mode){
   toast(`Synced ${data.inserted} sequence rows from EP${epList.join(', EP')}`);
 }
 
+// ── AI Narrative ──────────────────────────────────────────────────────────────
+let _narrativeModal = null;
+let _narrativeRow   = null;
+
+function openNarrativeModal(row) {
+  _narrativeRow = row;
+  if (!_narrativeModal)
+    _narrativeModal = new bootstrap.Modal(document.getElementById('narrativeModal'));
+
+  document.getElementById('narr-ep-title').textContent = row.ep;
+
+  const variance = (row.efc_budget||0) - (row.est_budget||0);
+  document.getElementById('narr-context').innerHTML = [
+    `<span><strong style="color:#d0d8f0;">Shots:</strong> ${row.est_shots||0} est / ${row.edit_shots||0} edit</span>`,
+    `<span><strong style="color:#d0d8f0;">EST:</strong> ${fmt$(row.est_budget)}</span>`,
+    `<span><strong style="color:#d0d8f0;">EFC:</strong> ${fmt$(row.efc_budget)}</span>`,
+    `<span class="${varClass(variance)}"><strong>VAR:</strong> ${varFmt(variance)}</span>`,
+    row.status ? `<span><strong style="color:#d0d8f0;">Status:</strong> ${row.status}</span>` : '',
+  ].filter(Boolean).join('');
+
+  // reset UI
+  const prev = document.getElementById('narr-preview');
+  const acts = document.getElementById('narr-actions');
+  const btn  = document.getElementById('narr-gen-btn');
+  prev.style.display = 'none'; prev.textContent = '';
+  acts.style.display = 'none';
+  btn.disabled = false; btn.innerHTML = '✨ Generate Memo';
+
+  _narrativeModal.show();
+}
+
+function narrativeGenerate() {
+  const row = _narrativeRow;
+  const variance = (row.efc_budget||0) - (row.est_budget||0);
+  const ctx = {
+    ep:           row.ep,
+    est_shots:    row.est_shots   || 0,
+    edit_shots:   row.edit_shots  || 0,
+    est_budget:   (row.est_budget || 0).toLocaleString(),
+    efc_budget:   (row.efc_budget || 0).toLocaleString(),
+    variance:     variance.toLocaleString(),
+    status:       row.status      || '—',
+    script_v:     row.script_v    || '?',
+    edit_v:       row.edit_v      || '?',
+    reduction_line: row.reduction_notes
+      ? `  EST Reduction Notes: ${row.reduction_notes}\n` : '',
+  };
+  llmUI({
+    task:      'ep_narrative',
+    context:   ctx,
+    genBtn:    document.getElementById('narr-gen-btn'),
+    previewEl: document.getElementById('narr-preview'),
+    actionsEl: document.getElementById('narr-actions'),
+    onAccept:  () => {},   // memo is read-only — Copy is the action
+  });
+}
+
+function narrativeCopy() {
+  const text = document.getElementById('narr-preview').textContent.trim();
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard'));
+}
+
+function narrativeDiscard() {
+  const prev = document.getElementById('narr-preview');
+  const acts = document.getElementById('narr-actions');
+  const btn  = document.getElementById('narr-gen-btn');
+  prev.style.display = 'none'; prev.textContent = '';
+  acts.style.display = 'none';
+  btn.disabled = false; btn.innerHTML = '✨ Generate Memo';
+}
+
+// ── Predictive EFC ───────────────────────────────────────────────────────────
+function togglePredPanel() {
+  const body = document.getElementById('pred-body');
+  const btn  = document.getElementById('pred-toggle-btn');
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? 'block' : 'none';
+  btn.textContent = hidden ? 'hide' : 'show';
+}
+
+async function loadPredictive() {
+  const el = document.getElementById('pred-content');
+  try {
+    const d = await fetch('/api/predictive_efc/season').then(r => r.json());
+    if (d.error) { el.innerHTML = `<div style="color:#4a5080;font-size:10px;">${d.error}</div>`; return; }
+    const s = d.summary || {};
+    const byEp = d.by_ep || {};
+    const delta = (s.total_predicted || 0) - (s.total_efc || 0);
+    const pct   = s.total_efc ? ((delta / s.total_efc) * 100).toFixed(1) : '—';
+    function fmtK(v) {
+      if (!v) return '$0';
+      if (Math.abs(v) >= 1_000_000) return '$' + (v/1_000_000).toFixed(1) + 'M';
+      if (Math.abs(v) >= 1_000)     return '$' + (v/1_000).toFixed(0) + 'K';
+      return '$' + v.toFixed(0);
+    }
+    let html = `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+      <div><span style="font-size:9px;color:#6870a0;">CURRENT EFC</span>
+           <div style="font-size:16px;font-weight:700;color:#f0b429;">${fmtK(s.total_efc)}</div></div>
+      <div><span style="font-size:9px;color:#6870a0;">PREDICTED EFC</span>
+           <div style="font-size:16px;font-weight:700;color:#4a9cf0;">${fmtK(s.total_predicted)}</div></div>
+      <div><span style="font-size:9px;color:#6870a0;">MODEL DELTA</span>
+           <div style="font-size:16px;font-weight:700;color:${delta > 0 ? '#e05252' : '#52c46a'};">
+             ${delta >= 0 ? '+' : ''}${fmtK(delta)} <span style="font-size:10px;font-weight:400;">(${pct}%)</span>
+           </div></div>
+    </div>`;
+    if (Object.keys(byEp).length) {
+      html += `<table style="width:100%;border-collapse:collapse;font-size:10px;">
+        <tr><th style="text-align:left;color:#6870a0;font-size:9px;padding:3px 6px;border-bottom:1px solid #1e2240;">EP</th>
+            <th style="text-align:right;color:#6870a0;font-size:9px;padding:3px 6px;border-bottom:1px solid #1e2240;">EST</th>
+            <th style="text-align:right;color:#6870a0;font-size:9px;padding:3px 6px;border-bottom:1px solid #1e2240;">CURRENT EFC</th>
+            <th style="text-align:right;color:#6870a0;font-size:9px;padding:3px 6px;border-bottom:1px solid #1e2240;">PREDICTED EFC</th>
+            <th style="text-align:right;color:#6870a0;font-size:9px;padding:3px 6px;border-bottom:1px solid #1e2240;">DELTA</th></tr>`;
+      for (const [ep, e] of Object.entries(byEp)) {
+        const d2 = (e.total_predicted||0) - (e.total_efc||0);
+        html += `<tr>
+          <td style="padding:4px 6px;font-weight:700;color:#f0b429;">EP${ep}</td>
+          <td style="padding:4px 6px;text-align:right;color:#6870a0;">${fmtK(e.total_est)}</td>
+          <td style="padding:4px 6px;text-align:right;color:#d0d8f0;">${fmtK(e.total_efc)}</td>
+          <td style="padding:4px 6px;text-align:right;color:#4a9cf0;">${fmtK(e.total_predicted)}</td>
+          <td style="padding:4px 6px;text-align:right;color:${d2>0?'#e05252':'#52c46a'};">
+            ${d2>=0?'+':''}${fmtK(d2)}</td>
+        </tr>`;
+      }
+      html += '</table>';
+    } else {
+      html += '<div style="color:#4a5080;font-size:10px;">No delivery ratio actuals yet — add invoice-verified shots to enable model.</div>';
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#4a5080;font-size:10px;">Predictive model unavailable: ${e}</div>`;
+  }
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init(){
+  // Opt #8: unsaved guard; #11: save indicator
+  _distGuard     = initUnsavedGuard();
+  _distIndicator = initSaveIndicator('dist-panel-header');
+  // Opt #9: keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); refreshDist(); }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); window.location='/api/export/distribution.xlsx'; }
+  });
+
+  // Reset EP filter (browser may remember previous selection)
+  document.getElementById('seq-ep-filter').value = '';
+
   await refreshDist();
+  loadPredictive();
   const res2 = await fetch('/api/sequences');
   const seqData = await res2.json();
+  console.log('[dist] sequences loaded:', seqData.length);
   buildSeqTable(seqData);
 }
 init();

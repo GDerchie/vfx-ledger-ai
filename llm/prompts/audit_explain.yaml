@@ -1,0 +1,13 @@
+name: audit_explain
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Audit log entries for {table_name} (row {row_id}):
+
+  {audit_entries}
+
+  User: {user}
+  Timestamp range: {time_range}
+  ---
+  Write a plain-English explanation of these changes for a non-technical producer. Focus on what changed, when, and whether any changes look unusual (e.g. large cost increases, repeated modifications to the same field, or changes made outside business hours). Keep it to 2-3 sentences. Be factual and neutral.

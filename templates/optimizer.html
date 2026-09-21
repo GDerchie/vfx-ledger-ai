@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+{% block title %}Season Optimizer — VFX Budget System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3 flex-wrap">
+  <div>
+    <h5 class="mb-0 fw-bold text-warning"><i class="bi bi-magic me-2"></i>SEASON OPTIMIZER</h5>
+    <div class="text-muted" style="font-size:11px;">
+      Propose lowest-cost vendor assignments · confidence-constrained · read-only until you Apply
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <!-- ── LEFT: Settings ──────────────────────────────────────────────────── -->
+  <div class="col-lg-3">
+    <div class="vfx-card h-100">
+      <div style="padding:14px 16px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.7px;color:#8090b0;margin-bottom:14px;">
+          OPTIMIZER SETTINGS
+        </div>
+
+        <!-- EP Filter -->
+        <div class="mb-3">
+          <label style="font-size:10px;color:#6870a0;font-weight:600;display:block;margin-bottom:4px;">
+            EPISODE FILTER
+          </label>
+          <select id="opt-ep" class="form-select form-select-sm"
+                  style="background:#0d0f1c;border-color:#2e3050;color:#d0d8f0;font-size:11px;">
+            <option value="">All Episodes</option>
+          </select>
+        </div>
+
+        <!-- Min Confidence -->
+        <div class="mb-3">
+          <label style="font-size:10px;color:#6870a0;font-weight:600;display:block;margin-bottom:4px;">
+            MIN VENDOR CONFIDENCE
+            <span id="conf-val" style="color:#f0b429;margin-left:6px;">0.50</span>
+          </label>
+          <input type="range" id="opt-conf" min="0" max="1" step="0.05" value="0.5"
+                 class="form-range" oninput="document.getElementById('conf-val').textContent=parseFloat(this.value).toFixed(2)">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:#4a5080;margin-top:2px;">
+            <span>0.0 (any)</span><span>0.50 (med)</span><span>1.0 (perfect)</span>
+          </div>
+        </div>
+
+        <!-- Max Vendor Share -->
+        <div class="mb-3">
+          <label style="font-size:10px;color:#6870a0;font-weight:600;display:block;margin-bottom:4px;">
+            MAX VENDOR SHARE
+            <span id="share-val" style="color:#f0b429;margin-left:6px;">100%</span>
+          </label>
+          <input type="range" id="opt-share" min="0.1" max="1" step="0.05" value="1"
+                 class="form-range" oninput="document.getElementById('share-val').textContent=Math.round(parseFloat(this.value)*100)+'%'">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:#4a5080;margin-top:2px;">
+            <span>10%</span><span>50%</span><span>100%</span>
+          </div>
+        </div>
+
+        <!-- Preferred Vendors -->
+        <div class="mb-4">
+          <label style="font-size:10px;color:#6870a0;font-weight:600;display:block;margin-bottom:4px;">
+            PREFERRED VENDORS
+            <span style="font-size:9px;color:#4a5080;font-weight:400;">(optional)</span>
+          </label>
+          <div id="pref-vendor-list" style="font-size:11px;color:#4a5080;">Loading…</div>
+          <div style="font-size:9px;color:#4a5080;margin-top:4px;">
+            When set, only preferred vendors are selected if they bid the scene.
+          </div>
+        </div>
+
+        <!-- Run button -->
+        <button id="run-btn" class="btn btn-warning w-100 fw-bold"
+                style="font-size:12px;letter-spacing:.5px;" onclick="runOptimizer()">
+          <i class="bi bi-play-fill me-1"></i>RUN OPTIMIZER
+        </button>
+
+        <div id="run-status" style="font-size:10px;color:#6870a0;margin-top:8px;text-align:center;min-height:16px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Results ───────────────────────────────────────────────────── -->
+  <div class="col-lg-9">
+
+    <!-- Placeholder before first run -->
+    <div id="results-placeholder" class="vfx-card" style="padding:40px;text-align:center;">
+      <i class="bi bi-magic" style="font-size:32px;color:#2e3060;display:block;margin-bottom:10px;"></i>
+      <div style="color:#4a5080;font-size:12px;">
+        Configure settings and click <strong style="color:#f0b429;">Run Optimizer</strong> to generate proposed vendor assignments.<br>
+        <span style="font-size:10px;color:#3a4070;">Results are advisory only — no changes are made until you click Apply Awards.</span>
+      </div>
+    </div>
+
+    <!-- Results (hidden until run) -->
+    <div id="results-area" style="display:none;">
+
+      <!-- KPI bar -->
+      <div class="row g-2 mb-3" id="kpi-row">
+        <div class="col-6 col-md-3">
+          <div class="vfx-card" style="padding:10px 14px;text-align:center;">
+            <div style="font-size:8px;font-weight:700;letter-spacing:.8px;color:#6870a0;">TOTAL COST</div>
+            <div id="kpi-cost" style="font-size:18px;font-weight:700;color:#f0b429;">—</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="vfx-card" style="padding:10px 14px;text-align:center;">
+            <div style="font-size:8px;font-weight:700;letter-spacing:.8px;color:#6870a0;">ASSIGNED</div>
+            <div id="kpi-assigned" style="font-size:18px;font-weight:700;color:#52c46a;">—</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="vfx-card" style="padding:10px 14px;text-align:center;">
+            <div style="font-size:8px;font-weight:700;letter-spacing:.8px;color:#6870a0;">UNASSIGNED</div>
+            <div id="kpi-unassigned" style="font-size:18px;font-weight:700;color:#e05252;">—</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="vfx-card" style="padding:10px 14px;text-align:center;">
+            <div style="font-size:8px;font-weight:700;letter-spacing:.8px;color:#6870a0;">AVG CONFIDENCE</div>
+            <div id="kpi-conf" style="font-size:18px;font-weight:700;color:#4a9cf0;">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vendor Summary -->
+      <div class="vfx-card mb-3">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.6px;color:#8090b0;
+                    padding:8px 14px 4px;border-bottom:1px solid #1e2240;">
+          <i class="bi bi-building me-1 text-warning"></i>VENDOR ALLOCATION SUMMARY
+        </div>
+        <div style="padding:10px 14px;" id="vendor-summary-table"></div>
+      </div>
+
+      <!-- Filter bar for assignments -->
+      <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <span style="font-size:10px;font-weight:700;letter-spacing:.6px;color:#8090b0;">PROPOSED ASSIGNMENTS</span>
+        <select id="filter-ep" class="form-select form-select-sm ms-auto"
+                style="background:#0d0f1c;border-color:#2e3050;color:#d0d8f0;font-size:10px;width:auto;"
+                onchange="renderAssignments()">
+          <option value="">All EPs</option>
+        </select>
+        <select id="filter-changed" class="form-select form-select-sm"
+                style="background:#0d0f1c;border-color:#2e3050;color:#d0d8f0;font-size:10px;width:auto;"
+                onchange="renderAssignments()">
+          <option value="">All shots</option>
+          <option value="changed">Changes only</option>
+          <option value="same">No change</option>
+          <option value="unassigned">Unassigned</option>
+        </select>
+        <span id="filter-count" style="font-size:10px;color:#4a5080;"></span>
+      </div>
+
+      <div class="vfx-card mb-3">
+        <div id="assignments-table" style="padding:0;overflow-x:auto;"></div>
+      </div>
+
+      <!-- Unassigned -->
+      <div id="unassigned-section" style="display:none;" class="vfx-card mb-3">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.6px;color:#e05252;
+                    padding:8px 14px 4px;border-bottom:1px solid #1e2240;">
+          <i class="bi bi-exclamation-triangle me-1"></i>UNASSIGNED SHOTS
+        </div>
+        <div style="padding:10px 14px;" id="unassigned-table"></div>
+      </div>
+
+      <!-- Apply Awards -->
+      <div class="vfx-card" style="padding:14px 16px;">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#d0d8f0;">Apply Awards to Shots</div>
+            <div style="font-size:10px;color:#6870a0;">
+              Writes proposed vendors to <code>shots.award_vendor</code> for all assigned shots.
+              All changes are logged to the audit trail.
+            </div>
+          </div>
+          <div class="ms-auto d-flex gap-2 align-items-center">
+            <label class="d-flex align-items-center gap-2" style="font-size:10px;color:#8090b0;cursor:pointer;">
+              <input type="checkbox" id="apply-changed-only" checked>
+              Changes only
+            </label>
+            <button id="apply-btn" class="btn btn-success fw-bold"
+                    style="font-size:12px;letter-spacing:.4px;" onclick="applyAwards()">
+              <i class="bi bi-check2-all me-1"></i>Apply Awards
+            </button>
+          </div>
+        </div>
+        <div id="apply-status" style="font-size:10px;margin-top:8px;min-height:16px;"></div>
+      </div>
+
+    </div><!-- /results-area -->
+  </div><!-- /col-right -->
+</div><!-- /row -->
+{% endblock %}
+
+{% block scripts %}
+<style>
+.opt-tbl { width:100%; border-collapse:collapse; font-size:11px; }
+.opt-tbl th { color:#6870a0; font-size:9px; font-weight:700; letter-spacing:.5px;
+              text-transform:uppercase; padding:5px 8px; border-bottom:1px solid #1e2240;
+              white-space:nowrap; }
+.opt-tbl td { padding:5px 8px; color:#d0d8f0; border-bottom:1px solid #111425; vertical-align:middle; }
+.opt-tbl tr:last-child td { border-bottom:none; }
+.opt-tbl tr:hover td { background:#1a1d35; }
+.conf-badge { display:inline-block; font-size:9px; font-weight:700; padding:1px 6px;
+              border-radius:8px; }
+.conf-high { background:rgba(82,196,106,.15); color:#52c46a; border:1px solid rgba(82,196,106,.3); }
+.conf-med  { background:rgba(240,180,41,.15); color:#f0b429; border:1px solid rgba(240,180,41,.3); }
+.conf-low  { background:rgba(224,82,82,.15);  color:#e05252; border:1px solid rgba(224,82,82,.3); }
+.vendor-sel { background:#0d0f1c; border:1px solid #2e3050; color:#d0d8f0;
+              font-size:10px; border-radius:3px; padding:1px 4px; }
+.changed-row td { background:rgba(74,156,240,.05); }
+.tag { display:inline-block; font-size:8px; padding:1px 5px; border-radius:3px;
+       font-weight:700; letter-spacing:.3px; margin-right:3px; }
+.tag-new  { background:rgba(74,156,240,.2); color:#4a9cf0; }
+.tag-same { background:rgba(82,196,106,.12); color:#52c46a; }
+.pref-chip { display:inline-flex; align-items:center; gap:4px; background:#1a1d35;
+             border:1px solid #2e3050; border-radius:12px; padding:2px 8px 2px 6px;
+             margin:2px; font-size:10px; color:#d0d8f0; }
+.pref-chip input[type=checkbox] { width:12px; height:12px; margin:0; accent-color:#f0b429; }
+</style>
+
+<script>
+let _optResult  = null;   // last optimizer result
+let _allVendors = [];     // vendors from bid_compare
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  // Populate EP dropdowns
+  try {
+    const eps = await (await fetch('/api/episodes')).json();
+    const sel  = document.getElementById('opt-ep');
+    const fsel = document.getElementById('filter-ep');
+    for (const ep of eps) {
+      sel.innerHTML  += `<option value="${ep}">EP ${ep}</option>`;
+      fsel.innerHTML += `<option value="${ep}">EP ${ep}</option>`;
+    }
+  } catch(e) {}
+
+  // Preferred vendors checklist
+  try {
+    _allVendors = await (await fetch('/api/optimizer/vendors')).json();
+    const container = document.getElementById('pref-vendor-list');
+    if (!_allVendors.length) {
+      container.innerHTML = '<span style="color:#4a5080;font-size:10px;">No vendors in Bid Compare yet.</span>';
+    } else {
+      container.innerHTML = _allVendors.map(v =>
+        `<label class="pref-chip">
+           <input type="checkbox" class="pref-cb" value="${v}">
+           ${v}
+         </label>`
+      ).join('');
+    }
+  } catch(e) {}
+})();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt$(v) {
+  if (!v && v !== 0) return '—';
+  if (Math.abs(v) >= 1_000_000) return '$' + (v/1_000_000).toFixed(2) + 'M';
+  if (Math.abs(v) >= 1_000)     return '$' + (v/1_000).toFixed(1) + 'K';
+  return '$' + Math.round(v).toLocaleString();
+}
+
+function confBadge(label) {
+  const cls = label === 'HIGH' ? 'conf-high' : label === 'MED' ? 'conf-med' : 'conf-low';
+  return `<span class="conf-badge ${cls}">${label}</span>`;
+}
+
+// ── Run optimizer ─────────────────────────────────────────────────────────────
+async function runOptimizer() {
+  const btn    = document.getElementById('run-btn');
+  const status = document.getElementById('run-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Running…';
+  status.textContent = '';
+
+  const preferred = Array.from(document.querySelectorAll('.pref-cb:checked')).map(c => c.value);
+  const epVal     = document.getElementById('opt-ep').value;
+
+  const payload = {
+    min_confidence:   parseFloat(document.getElementById('opt-conf').value),
+    max_vendor_share: parseFloat(document.getElementById('opt-share').value),
+    preferred_vendors: preferred,
+    ep_filter: epVal ? parseInt(epVal) : null,
+  };
+
+  try {
+    const res = await fetch('/api/optimizer/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    _optResult = await res.json();
+    renderResults(_optResult);
+    status.textContent = `Completed in ${new Date().toLocaleTimeString()}`;
+  } catch(e) {
+    status.style.color = '#e05252';
+    status.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>RUN OPTIMIZER';
+  }
+}
+
+// ── Render results ────────────────────────────────────────────────────────────
+function renderResults(r) {
+  document.getElementById('results-placeholder').style.display = 'none';
+  document.getElementById('results-area').style.display        = 'block';
+
+  // KPIs
+  document.getElementById('kpi-cost').textContent      = fmt$(r.total_cost);
+  document.getElementById('kpi-assigned').textContent  = r.assigned_shots + ' / ' + r.total_shots;
+  document.getElementById('kpi-unassigned').textContent = r.unassigned_shots.length;
+  const confPct = Math.round((r.overall_confidence || 0) * 100);
+  document.getElementById('kpi-conf').textContent = confPct + '%';
+  document.getElementById('kpi-conf').style.color =
+    confPct >= 70 ? '#52c46a' : confPct >= 40 ? '#f0b429' : '#e05252';
+
+  // Vendor summary
+  const vendors = Object.entries(r.vendor_summary || {})
+    .sort((a,b) => b[1].total_shots - a[1].total_shots);
+  if (vendors.length) {
+    const maxCost = Math.max(...vendors.map(([,v]) => v.total_cost), 1);
+    let html = `<table class="opt-tbl">
+      <tr><th>VENDOR</th><th>SHOTS</th><th>SHARE</th><th>TOTAL COST</th><th>AVG CONF</th><th>LOAD</th></tr>`;
+    for (const [vendor, d] of vendors) {
+      const pct   = Math.round(d.workload_ratio * 100);
+      const barW  = Math.round((d.total_cost / maxCost) * 100);
+      const barC  = d.avg_confidence >= 0.7 ? '#52c46a' : d.avg_confidence >= 0.4 ? '#f0b429' : '#e05252';
+      html += `<tr>
+        <td style="font-weight:600;">${vendor}</td>
+        <td style="text-align:right;">${d.total_shots}</td>
+        <td style="text-align:right;color:#8090b0;">${pct}%</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="flex:1;height:8px;background:#1a1d35;border-radius:4px;overflow:hidden;min-width:60px;">
+              <div style="width:${barW}%;height:100%;background:${barC};border-radius:4px;"></div>
+            </div>
+            <span style="font-size:10px;color:#f0b429;min-width:55px;text-align:right;">${fmt$(d.total_cost)}</span>
+          </div>
+        </td>
+        <td>${confBadge(d.confidence_label)}
+            <span style="font-size:9px;color:#6870a0;margin-left:4px;">${(d.avg_confidence*100).toFixed(0)}%</span>
+        </td>
+        <td style="font-size:9px;color:#6870a0;">${pct}% of season</td>
+      </tr>`;
+    }
+    html += '</table>';
+    document.getElementById('vendor-summary-table').innerHTML = html;
+  } else {
+    document.getElementById('vendor-summary-table').innerHTML =
+      '<div style="color:#4a5080;font-size:10px;padding:10px;">No vendors assigned — check Bid Compare data and confidence threshold.</div>';
+  }
+
+  renderAssignments();
+  renderUnassigned(r.unassigned_shots || []);
+}
+
+// ── Assignments table (filterable) ────────────────────────────────────────────
+function renderAssignments() {
+  if (!_optResult) return;
+  const filterEp      = document.getElementById('filter-ep').value;
+  const filterChanged = document.getElementById('filter-changed').value;
+
+  const rows = Object.entries(_optResult.assignments || {});
+  const unassigned = _optResult.unassigned_shots || [];
+
+  // Apply filters
+  let visible = rows.filter(([id, d]) => {
+    if (filterEp && String(d.ep) !== filterEp) return false;
+    if (filterChanged === 'changed') return d.vendor !== d.current_vendor;
+    if (filterChanged === 'same')    return d.vendor === d.current_vendor;
+    return true;
+  });
+  let unvisible = [];
+  if (filterChanged === 'unassigned' || filterChanged === '') {
+    unvisible = unassigned.filter(u => !filterEp || String(u.ep) === filterEp);
+  }
+
+  document.getElementById('filter-count').textContent =
+    `${visible.length + (filterChanged === 'unassigned' ? unvisible.length : 0)} rows`;
+
+  if (!visible.length && !unvisible.length) {
+    document.getElementById('assignments-table').innerHTML =
+      '<div style="padding:14px;color:#4a5080;font-size:10px;text-align:center;">No rows match filter.</div>';
+    return;
+  }
+
+  const allVendors = Object.keys(_optResult.vendor_summary || {});
+
+  let html = `<table class="opt-tbl" style="min-width:700px;">
+    <tr>
+      <th>EP</th><th>SC</th><th>TYPE</th><th>COMPLEXITY</th>
+      <th>CURRENT VENDOR</th><th style="color:#4a9cf0;">PROPOSED VENDOR</th>
+      <th>COST</th><th></th>
+    </tr>`;
+
+  for (const [id, d] of visible.sort((a,b) => a[1].ep - b[1].ep || a[1].scene_code.localeCompare(b[1].scene_code))) {
+    const changed  = d.vendor !== d.current_vendor;
+    const rowCls   = changed ? 'changed-row' : '';
+    const changeBadge = changed
+      ? `<span class="tag tag-new">→ NEW</span>`
+      : `<span class="tag tag-same">✓ SAME</span>`;
+
+    // Build vendor override dropdown
+    const opts = allVendors.map(v =>
+      `<option value="${v}" ${v === d.vendor ? 'selected' : ''}>${v}</option>`
+    ).join('');
+
+    html += `<tr class="${rowCls}">
+      <td style="color:#f0b429;font-weight:700;">EP${d.ep}</td>
+      <td style="font-weight:600;">${d.scene_code}</td>
+      <td style="color:#7090c0;font-size:10px;">${d.shot_type || '—'}</td>
+      <td style="font-size:10px;">${d.complexity || '—'}</td>
+      <td style="color:#6870a0;">${d.current_vendor || '—'}</td>
+      <td>
+        <select class="vendor-sel" data-id="${id}"
+                onchange="overrideVendor(${id}, this.value)">
+          ${opts}
+        </select>
+        ${changeBadge}
+      </td>
+      <td style="text-align:right;color:#52c46a;">${fmt$(d.cost)}</td>
+      <td>${changeBadge === '<span class="tag tag-new">→ NEW</span>'
+            ? `<button onclick="revertRow(${id})" title="Revert to current vendor"
+                       style="background:none;border:none;color:#4a5080;font-size:11px;cursor:pointer;">↩</button>`
+            : ''}</td>
+    </tr>`;
+  }
+  html += '</table>';
+  document.getElementById('assignments-table').innerHTML = html;
+}
+
+function overrideVendor(shotId, vendor) {
+  if (_optResult && _optResult.assignments[shotId]) {
+    _optResult.assignments[shotId].vendor = vendor;
+    // Recalc vendor summary counts
+    renderResults(_optResult);
+  }
+}
+
+function revertRow(shotId) {
+  if (_optResult && _optResult.assignments[shotId]) {
+    const d = _optResult.assignments[shotId];
+    d.vendor = d.current_vendor;
+    renderAssignments();
+  }
+}
+
+// ── Unassigned shots ──────────────────────────────────────────────────────────
+function renderUnassigned(list) {
+  const sec = document.getElementById('unassigned-section');
+  if (!list.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  let html = `<table class="opt-tbl">
+    <tr><th>EP</th><th>SC</th><th>REASON</th></tr>`;
+  for (const u of list) {
+    html += `<tr>
+      <td style="color:#f0b429;">EP${u.ep}</td>
+      <td>${u.scene_code || '—'}</td>
+      <td style="color:#6870a0;font-size:10px;">${u.reason}</td>
+    </tr>`;
+  }
+  html += '</table>';
+  document.getElementById('unassigned-table').innerHTML = html;
+}
+
+// ── Apply Awards ──────────────────────────────────────────────────────────────
+async function applyAwards() {
+  if (!_optResult) return;
+  const btn    = document.getElementById('apply-btn');
+  const status = document.getElementById('apply-status');
+  const changedOnly = document.getElementById('apply-changed-only').checked;
+
+  const toApply = {};
+  for (const [id, d] of Object.entries(_optResult.assignments || {})) {
+    if (changedOnly && d.vendor === d.current_vendor) continue;
+    toApply[id] = d.vendor;
+  }
+
+  if (!Object.keys(toApply).length) {
+    status.style.color = '#f0b429';
+    status.textContent = 'Nothing to apply — no changes from current assignments.';
+    return;
+  }
+
+  const n = Object.keys(toApply).length;
+  if (!confirm(`Apply ${n} vendor assignment${n > 1 ? 's' : ''} to shots?\nThis will update shots.award_vendor and log all changes to the audit trail.`)) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Applying…';
+  status.style.color = '#8090b0';
+  status.textContent = '';
+
+  try {
+    const res = await fetch('/api/optimizer/apply', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({assignments: toApply}),
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    status.style.color = '#52c46a';
+    status.textContent = `✓ Applied ${d.applied} award${d.applied !== 1 ? 's' : ''}` +
+                         (d.skipped ? ` (${d.skipped} skipped)` : '') +
+                         '. Refresh an episode to see changes.';
+    // Update current_vendor in local state so re-run shows correct diff
+    for (const [id, vendor] of Object.entries(toApply)) {
+      if (_optResult.assignments[id]) _optResult.assignments[id].current_vendor = vendor;
+    }
+    renderAssignments();
+  } catch(e) {
+    status.style.color = '#e05252';
+    status.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check2-all me-1"></i>Apply Awards';
+  }
+}
+</script>
+{% endblock %}

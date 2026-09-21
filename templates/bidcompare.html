@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-  <h5 class="mb-0 fw-bold text-warning">
+  <h5 class="mb-0 fw-bold text-warning" id="bid-panel-header">
     <i class="bi bi-bar-chart-steps me-2"></i>BID COMPARE
   </h5>
 
@@ -21,6 +21,10 @@
   </div>
 
   <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm" id="bid-ai-btn" onclick="openBidAnalysis()"
+            style="border-color:#4a9cf0;color:#4a9cf0;background:transparent;">
+      ✨ Bid Analysis
+    </button>
     <button class="btn btn-sm btn-warning" onclick="openImport()">
       <i class="bi bi-upload me-1"></i>Import BIDCOMPARE Excel
     </button>
@@ -28,6 +32,19 @@
       <i class="bi bi-trash me-1"></i>Clear
     </button>
   </div>
+</div>
+
+<!-- Bid Analysis Panel -->
+<div id="bid-ai-panel" style="display:none;background:#0d0f1c;border:1px solid #2a3060;
+     border-radius:5px;padding:14px 16px;margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.7px;color:#4a9cf0;">
+      ✨ AI BID ANALYSIS
+    </span>
+    <button onclick="document.getElementById('bid-ai-panel').style.display='none'"
+            style="background:none;border:none;color:#4a5080;cursor:pointer;font-size:14px;">✕</button>
+  </div>
+  <div id="bid-ai-output" style="font-size:12px;color:#d0d8f0;line-height:1.6;min-height:60px;"></div>
 </div>
 
 <div class="d-flex gap-4 mb-3 flex-wrap" style="font-size:12px;color:#6870a0;">
@@ -81,9 +98,14 @@
 
 {% block scripts %}
 <script>
-let bidTable = null;
+let bidTable   = null;
 let allVendors = [];
-let allRows = [];
+let allRows    = [];
+let confidence = {};   // vendor → {samples, mean, cv, confidence, label}
+
+// ── Save guard + indicator (Opt #8 / #11) ────────────────────────────────────
+let _bidGuard     = null;
+let _bidIndicator = null;
 
 const eps = Array.from(
   {length: {{ session.get('ep_end', 108) - session.get('ep_start', 101) + 1 }}},
@@ -145,12 +167,17 @@ function buildColumns(vendors) {
         const row = cell.getRow();
         const id  = row.getData().id;
         const award = (cell.getValue() || '').trim();
-        await fetch(`/api/bidcompare/${id}`, {
-          method: 'PUT',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({award})
-        });
-        row.reformat();
+        _bidGuard?.setPending(true); _bidIndicator?.saving();
+        try {
+          await fetch(`/api/bidcompare/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({award})
+          });
+          row.reformat();
+          _bidIndicator?.saved();
+        } catch(e) { _bidIndicator?.error(); }
+        finally { _bidGuard?.setPending(false); }
       },
       formatter: c => {
         const v = c.getValue();
@@ -167,10 +194,16 @@ function buildColumns(vendors) {
   ];
 
   vendors.forEach(v => {
+    const conf  = confidence[v] || null;
+    const confTag = conf
+      ? ` <span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;`
+        + `background:${conf.label==='HIGH'?'rgba(82,196,106,.2)':conf.label==='MED'?'rgba(240,180,41,.2)':'rgba(224,82,82,.2)'};`
+        + `color:${conf.label==='HIGH'?'#52c46a':conf.label==='MED'?'#f0b429':'#e05252'};">${conf.label}</span>`
+      : '';
     cols.push({
-      title: v,
+      title: v + confTag,
       field: '_v_' + v,
-      width: 88,
+      width: 100,
       hozAlign: 'right',
       cssClass: 'vendor-col',
       formatter: function(cell) {
@@ -235,12 +268,14 @@ async function loadData() {
   const errEl = document.getElementById('err-msg');
   errEl.style.display = 'none';
   try {
-    const [dataRes, vendorRes] = await Promise.all([
-      fetch('/api/bidcompare'),
-      fetch('/api/bidcompare/vendors')
+    const [dataRes, vendorRes, confRes] = await Promise.all([
+      fetch('/api/bidcompare?novfx=1'),
+      fetch('/api/bidcompare/vendors?novfx=1'),
+      fetch('/api/vendor_confidence'),
     ]);
     allRows    = await dataRes.json();
     allVendors = await vendorRes.json();
+    confidence = await confRes.json();
 
     populateVersionFilter(allRows.filter(r => !r.novfx));
 
@@ -251,6 +286,7 @@ async function loadData() {
 
     if (!bidTable) {
       bidTable = new Tabulator('#bid-table', {
+        ...TABULATOR_PERF,
         data:           flat,
         columns:        cols,
         layout:         'fitData',
@@ -315,12 +351,63 @@ async function clearData() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Opt #8: unsaved guard; #11: save indicator
+  _bidGuard     = initUnsavedGuard();
+  _bidIndicator = initSaveIndicator('bid-panel-header');
+  // Opt #9: keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); loadData(); }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); if (bidTable) bidTable.download('csv','bidcompare.csv'); }
+  });
   populateEpFilters();
   document.getElementById('ep-filter').addEventListener('change', applyFilters);
   document.getElementById('ver-filter').addEventListener('change', applyFilters);
   document.getElementById('show-novfx').addEventListener('change', applyFilters);
   loadData();
 });
+
+// ── AI Bid Analysis ───────────────────────────────────────────────────────────
+async function openBidAnalysis() {
+  const ep     = document.getElementById('ep-filter').value || null;
+  const panel  = document.getElementById('bid-ai-panel');
+  const out    = document.getElementById('bid-ai-output');
+  const btn    = document.getElementById('bid-ai-btn');
+  panel.style.display = 'block';
+  out.innerHTML = '<div style="color:#4a5080;font-size:10px;">Analysing bids…</div>';
+  btn.disabled  = true; btn.textContent = '✨ Analysing…';
+
+  try {
+    const res  = await fetch('/api/llm/bid_analysis', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ ep: ep ? parseInt(ep) : null })
+    });
+    const data = await res.json();
+    if (data.error) { out.innerHTML = `<div style="color:#e05252;">${data.error}</div>`; return; }
+
+    const RISK_COL = { low: '#52c46a', medium: '#f0b429', high: '#e05252' };
+    const rCol = RISK_COL[data.risk_flag] || '#8090b0';
+    let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:10px;font-weight:700;color:#6870a0;">BID RISK</span>
+      <span style="font-size:11px;font-weight:700;color:${rCol};text-transform:uppercase;">
+        ${data.risk_flag || '—'}</span>
+    </div>`;
+    if (data.outliers && data.outliers.length) {
+      html += `<div style="font-size:10px;font-weight:700;color:#f0b429;margin-bottom:5px;">OUTLIERS</div>`;
+      html += data.outliers.map(o =>
+        `<div style="font-size:11px;color:#d0d8f0;padding:2px 0;">▸ ${o}</div>`
+      ).join('');
+      html += '<div style="margin-bottom:8px;"></div>';
+    }
+    if (data.recommendation) {
+      html += `<div style="font-size:11px;color:#c0cce8;line-height:1.6;">${data.recommendation}</div>`;
+    }
+    out.innerHTML = html;
+  } catch(e) {
+    out.innerHTML = `<div style="color:#e05252;">Error: ${e}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Bid Analysis';
+  }
+}
 </script>
 
 <style>
@@ -330,5 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
 #bid-table .tabulator-col-title { font-size: 10px; letter-spacing: .7px; text-transform: uppercase; }
 #bid-table .tabulator-row:hover .tabulator-cell { background: #12152a !important; }
 #bid-table .vendor-col .tabulator-cell { background: #0d0f1c; }
+#bid-table .tabulator-col-title { display:flex; align-items:center; gap:4px; }
 </style>
 {% endblock %}

@@ -1,0 +1,19 @@
+name: vendor_suggest
+version: 1
+output_schema:
+  type: object
+  properties:
+    vendor:
+      type: string
+    reason:
+      type: string
+retry_on_parse_fail: true
+template: |
+  Shot details:
+    SC {scene_code}  EP{ep}  Type: {shot_type}  Complexity: {complexity}
+    VFX Description: {vfx_desc}
+    Est Cost: ${cost_est}
+  Available vendors and their awarded totals:
+  {vendor_list}
+  ---
+  Recommend the single best vendor for this shot. Reply with ONLY valid JSON: {{"vendor": "VendorName", "reason": "one sentence"}}

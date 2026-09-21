@@ -1,0 +1,13 @@
+name: ep_narrative
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Episode {ep} VFX Budget:
+    Shots: {est_shots} estimated  |  {edit_shots} in edit cut
+    EST Budget: ${est_budget}  |  EFC: ${efc_budget}  |  Variance: ${variance}
+    Status: {status}
+    Script v{script_v} / Edit v{edit_v}
+  {reduction_line}
+  ---
+  Write a 2-sentence producer memo summarising this episode's VFX budget status. Be direct and factual. No headings.

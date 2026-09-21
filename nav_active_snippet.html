@@ -1,0 +1,95 @@
+{# ─────────────────────────────────────────────────────────────
+   UNIFIED NAV — drop this into base.html replacing the existing
+   <ul class="navbar-nav"> block.
+
+   Accent colours per page:
+     Dashboard  → active-orange
+     Distribution / Notes / Scenario → active  (amber, default)
+     EP pages   → active-blue
+     Assets     → active-green
+     Audit      → active-teal
+─────────────────────────────────────────────────────────────── #}
+
+<ul class="navbar-nav me-auto">
+
+  <li class="nav-item">
+    <a class="nav-link {% if request.path == '/dashboard' %}active-orange{% endif %}"
+       href="/dashboard">
+      <i class="bi bi-bar-chart-fill me-1" style="font-size:11px"></i>Dashboard
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link {% if request.path == '/distribution' %}active{% endif %}"
+       href="/distribution">
+      <i class="bi bi-grid-3x3-gap me-1" style="font-size:11px"></i>Distribution
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link {% if request.path == '/assets' %}active-green{% endif %}"
+       href="/assets">
+      <i class="bi bi-box-seam me-1" style="font-size:11px"></i>Assets
+    </a>
+  </li>
+
+  <li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle
+              {% if request.path and request.path.startswith('/ep/') %}active-blue{% endif %}"
+       href="#" role="button" data-bs-toggle="dropdown" id="nav-ep-btn">
+      <i class="bi bi-film me-1" style="font-size:11px"></i>Episodes
+      {% if request.path and request.path.startswith('/ep/') %}
+        <span class="nav-ep-badge">{{ request.path.split('/')[-1] }}</span>
+      {% endif %}
+    </a>
+    <ul class="dropdown-menu" id="nav-ep-menu">
+      {# Populated dynamically by JS from /api/episodes #}
+    </ul>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link {% if request.path == '/notes' %}active{% endif %}"
+       href="/notes">
+      <i class="bi bi-stickies me-1" style="font-size:11px"></i>VFX Notes
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link" href="/bid_compare">
+      <i class="bi bi-arrow-left-right me-1" style="font-size:11px"></i>Bid Compare
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link" href="/optimizer">
+      <i class="bi bi-sliders me-1" style="font-size:11px"></i>Optimizer
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link" href="/vendor_tracker">
+      <i class="bi bi-people me-1" style="font-size:11px"></i>Vendor Tracker
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link" href="/invoice_log">
+      <i class="bi bi-receipt me-1" style="font-size:11px"></i>Invoice Log
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link {% if request.path == '/scenario' %}active{% endif %}"
+       href="/scenario">
+      <i class="bi bi-graph-up me-1" style="font-size:11px"></i>Scenario
+    </a>
+  </li>
+
+  <li class="nav-item">
+    <a class="nav-link {% if request.path == '/audit' %}active-teal{% endif %}"
+       href="/audit">
+      <i class="bi bi-clock-history me-1" style="font-size:11px"></i>Audit
+    </a>
+  </li>
+
+</ul>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}VFX Budget System{% endblock %}</title>
+
+<!-- Bootstrap 5 dark -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<!-- Tabulator -->
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator_midnight.min.css">
+
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* ── Shared AI button / panel styles ─────────────────────────── */
+.ai-btn {
+  background: none; border: 1px solid #2a3050; border-radius: 3px;
+  color: #f0b429; font-size: 12px; cursor: pointer; padding: 1px 6px;
+  line-height: 1.5; transition: border-color .15s, background .15s;
+}
+.ai-btn:hover  { background: #1a1d35; border-color: #f0b429; }
+.ai-btn:active { background: #252840; }
+.ai-btn:disabled { opacity: .45; cursor: not-allowed; }
+.ai-preview {
+  display: none; margin-top: 6px; font-size: 11px; color: #d0d8f0;
+  background: #0d0f1c; border: 1px solid #2e3050; border-radius: 4px;
+  padding: 8px 10px; white-space: pre-wrap; line-height: 1.55;
+  max-height: 180px; overflow-y: auto;
+}
+.ai-actions {
+  display: none; gap: 8px; margin-top: 6px;
+}
+.ai-accept  { background:#1a3020;border:1px solid #52c46a;color:#52c46a;border-radius:3px;padding:2px 10px;font-size:11px;cursor:pointer; }
+.ai-discard { background:#1e1a10;border:1px solid #4a4020;color:#8a7040;border-radius:3px;padding:2px 10px;font-size:11px;cursor:pointer; }
+.ai-accept:hover  { background:#1e3a28; }
+.ai-discard:hover { background:#2a2214; }
+/* AI modal sections */
+.ai-section { padding: 12px 0; border-bottom: 1px solid #1e2240; }
+.ai-section:last-child { border-bottom: none; }
+.ai-section-lbl { font-size:9px;font-weight:700;letter-spacing:.7px;color:#6870a0;text-transform:uppercase;margin-bottom:6px; }
+.ai-cur-val { font-size:11px;color:#7880a0;min-height:16px;font-style:italic; }
+.ai-cur-val.has-val { color:#d0d8f0; font-style:normal; }
+</style>
+</head>
+<body data-bs-theme="dark">
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark vfx-nav sticky-top">
+  <div class="container-fluid px-3">
+    <span class="navbar-brand fw-bold text-warning">
+      <i class="bi bi-camera-reels me-2"></i>VFX BUDGET SYSTEM
+      <small class="text-muted fs-6 ms-2">
+        {{ session.get('project_name','') }}
+        {% if session.get('project_season') %} {{ session.get('project_season') }}{% endif %}
+      </small>
+    </span>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/dashboard' %}active text-warning{% endif %}"
+             href="/dashboard"><i class="bi bi-speedometer2 me-1"></i>DASHBOARD</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/' %}active text-warning{% endif %}"
+             href="/"><i class="bi bi-grid-3x3-gap me-1"></i>DISTRIBUTION</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/assets' %}active text-warning{% endif %}"
+             href="/assets"><i class="bi bi-box-seam me-1"></i>ASSETS</a>
+        </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {% if 'ep' in request.path %}active text-warning{% endif %}"
+             href="#" data-bs-toggle="dropdown" id="nav-ep-toggle">
+            <i class="bi bi-film me-1"></i>EPISODES
+          </a>
+          <ul class="dropdown-menu dropdown-menu-dark" id="nav-ep-menu">
+            <li><a class="dropdown-item text-muted" style="font-size:11px;">Loading…</a></li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/notes' %}active text-warning{% endif %}"
+             href="/notes"><i class="bi bi-journal-text me-1"></i>VFX NOTES</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/bidcompare' %}active text-warning{% endif %}"
+             href="/bidcompare"><i class="bi bi-bar-chart-steps me-1"></i>BID COMPARE</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/optimizer' %}active text-warning{% endif %}"
+             href="/optimizer"><i class="bi bi-magic me-1"></i>OPTIMIZER</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/vendortracker' %}active text-warning{% endif %}"
+             href="/vendortracker"><i class="bi bi-receipt me-1"></i>VENDOR TRACKER</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/invoicelog' %}active text-warning{% endif %}"
+             href="/invoicelog"><i class="bi bi-journal-check me-1"></i>INVOICE LOG</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/scenario' %}active text-warning{% endif %}"
+             href="/scenario"><i class="bi bi-graph-up-arrow me-1"></i>SCENARIO</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/audit' %}active text-warning{% endif %}"
+             href="/audit"><i class="bi bi-clock-history me-1"></i>AUDIT</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/settings' %}active text-warning{% endif %}"
+             href="/settings"><i class="bi bi-gear me-1"></i>SETTINGS</a>
+        </li>
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        <span class="navbar-text text-muted small" id="nav-date"></span>
+        <!-- Global Search -->
+        <button class="btn btn-sm btn-outline-secondary" id="search-btn"
+                onclick="openSearch()"
+                title="Search (Ctrl+K)"
+                style="font-size:11px;border-color:#2e3050;color:#7880a0;padding:3px 8px;">
+          <i class="bi bi-search me-1"></i>Search
+        </button>
+        <a href="/projects" class="nav-link text-muted"
+           style="font-size:11px;border:1px solid #2e3050;border-radius:4px;padding:3px 8px;">
+          <i class="bi bi-grid-3x2-gap me-1"></i>Projects
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- GLOBAL SEARCH MODAL -->
+<div class="modal fade" id="searchModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable" style="margin-top:60px;">
+    <div class="modal-content" style="background:#0d0e18;border:1px solid #2e3050;">
+      <div class="modal-header" style="background:#12152a;border-bottom:1px solid #2e3050;padding:8px 14px;">
+        <div class="d-flex align-items-center gap-2 w-100">
+          <i class="bi bi-search" style="color:#6870a0;"></i>
+          <input id="search-input" type="text" placeholder="Search shots, assets, notes…"
+                 autocomplete="off"
+                 style="background:transparent;border:none;outline:none;color:#dce1f0;
+                        font-size:14px;flex:1;min-width:0;"
+                 oninput="searchDebounce()">
+          <span id="search-spinner" class="spinner-border spinner-border-sm text-secondary"
+                style="display:none;width:14px;height:14px;"></span>
+          <kbd style="font-size:10px;color:#4a5080;background:#1a1d35;border:1px solid #2e3050;
+                      border-radius:3px;padding:1px 5px;">ESC</kbd>
+        </div>
+      </div>
+      <div class="modal-body" id="search-body" style="padding:10px 14px;min-height:120px;max-height:60vh;overflow-y:auto;">
+        <div class="text-muted text-center py-4" style="font-size:12px;">Type to search…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="container-fluid px-3 py-3">
+  {% block content %}{% endblock %}
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Tabulator -->
+<script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+<!-- LLM helper -->
+<script src="/static/llm.js"></script>
+<!-- Shared utilities (fmt, apiPut, TABULATOR_PERF, initSaveIndicator, initUnsavedGuard, showToast) -->
+<script src="/static/utils.js"></script>
+
+<script>
+  document.getElementById('nav-date').textContent =
+    new Date().toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+
+  // Opt #2: Lazy-load episode nav from API (uses sessionStorage for caching)
+  (async function() {
+    const menu = document.getElementById('nav-ep-menu');
+    if (!menu) return;
+    const cacheKey = 'nav_episodes';
+    let eps = null;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try { eps = JSON.parse(cached); } catch(e) {}
+    }
+    if (!eps) {
+      try {
+        const res = await fetch('/api/episodes');
+        if (res.ok) {
+          eps = await res.json();
+          sessionStorage.setItem(cacheKey, JSON.stringify(eps));
+        }
+      } catch(e) {}
+    }
+    if (eps && eps.length) {
+      const currentPath = window.location.pathname;
+      menu.innerHTML = eps.map(ep =>
+        `<li><a class="dropdown-item${currentPath === '/ep/'+ep ? ' text-warning' : ''}"
+             href="/ep/${ep}">EP ${ep}</a></li>`
+      ).join('');
+    }
+  })();
+
+  // ── Global Search ────────────────────────────────────────────────────────
+  let _searchTimer = null;
+  let _searchModal = null;
+
+  function openSearch() {
+    if (!_searchModal) _searchModal = new bootstrap.Modal(document.getElementById('searchModal'));
+    _searchModal.show();
+    setTimeout(() => document.getElementById('search-input').focus(), 200);
+  }
+
+  function searchDebounce() {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(runSearch, 280);
+  }
+
+  async function runSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    const body = document.getElementById('search-body');
+    const spinner = document.getElementById('search-spinner');
+    if (q.length < 2) {
+      body.innerHTML = '<div class="text-muted text-center py-4" style="font-size:12px;">Type at least 2 characters…</div>';
+      return;
+    }
+    spinner.style.display = 'inline-block';
+    let data;
+    try {
+      const res = await fetch('/api/search?q=' + encodeURIComponent(q));
+      data = await res.json();
+    } catch(e) {
+      body.innerHTML = '<div class="text-danger text-center py-3" style="font-size:12px;">Search unavailable — open a project first.</div>';
+      spinner.style.display = 'none'; return;
+    }
+    spinner.style.display = 'none';
+    const total = data.shots.length + data.assets.length + data.notes.length;
+    if (!total) {
+      body.innerHTML = `<div class="text-muted text-center py-4" style="font-size:12px;">No results for "<strong>${q}</strong>"</div>`;
+      return;
+    }
+    const hi = (text, q) => {
+      if (!text) return '';
+      const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+      return String(text).replace(re, '<mark style="background:#2a3010;color:#f0b429;padding:0;">$1</mark>');
+    };
+    let html = '';
+    if (data.shots.length) {
+      html += `<div class="srch-section-hdr">SHOTS <span class="srch-count">${data.shots.length}</span></div>`;
+      html += data.shots.map(s => `
+        <a href="/ep/${s.ep}" class="srch-row" onclick="closeSearch()">
+          <div class="srch-ep">EP${s.ep}</div>
+          <div class="srch-sc">SC ${hi(s.scene_code, q)}</div>
+          <div class="srch-main">
+            ${s.location ? `<span class="srch-loc">${hi(s.location, q)}</span>` : ''}
+            ${s.vfx_desc ? `<span class="srch-desc">${hi((s.vfx_desc||'').substring(0,80), q)}</span>` : ''}
+            ${s.asset    ? `<span class="srch-asset"><i class="bi bi-box-seam" style="font-size:9px;margin-right:2px;"></i>${hi(s.asset, q)}</span>` : ''}
+          </div>
+          ${s.award_vendor ? `<span class="srch-vendor">${hi(s.award_vendor, q)}</span>` : ''}
+        </a>`).join('');
+    }
+    if (data.assets.length) {
+      html += `<div class="srch-section-hdr">ASSETS <span class="srch-count">${data.assets.length}</span></div>`;
+      html += data.assets.map(a => `
+        <a href="/assets" class="srch-row" onclick="closeSearch()">
+          <div class="srch-ep">EP${a.ep}</div>
+          <div class="srch-sc">SC ${hi(a.scene_code, q)}</div>
+          <div class="srch-main">
+            <span class="srch-asset-name">${hi(a.asset_name, q)}</span>
+            ${a.asset_type ? `<span class="srch-type">${a.asset_type}</span>` : ''}
+            ${a.description ? `<span class="srch-desc">${hi((a.description||'').substring(0,60), q)}</span>` : ''}
+          </div>
+        </a>`).join('');
+    }
+    if (data.notes.length) {
+      html += `<div class="srch-section-hdr">NOTES <span class="srch-count">${data.notes.length}</span></div>`;
+      html += data.notes.map(n => `
+        <a href="/notes" class="srch-row" onclick="closeSearch()">
+          <div class="srch-ep">#${n.item_num}</div>
+          <div class="srch-sc">${n.author||'—'}</div>
+          <div class="srch-main">
+            <span class="srch-desc">${hi((n.note_text||'').substring(0,100), q)}</span>
+          </div>
+          <span class="srch-vendor">${n.note_date||''}</span>
+        </a>`).join('');
+    }
+    body.innerHTML = html;
+  }
+
+  function closeSearch() {
+    if (_searchModal) _searchModal.hide();
+    document.getElementById('search-input').value = '';
+  }
+
+  // Ctrl+K shortcut
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
+  });
+
+  // Clear on modal hide
+  document.getElementById('searchModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-body').innerHTML =
+      '<div class="text-muted text-center py-4" style="font-size:12px;">Type to search…</div>';
+  });
+</script>
+
+<style>
+.srch-section-hdr {
+  font-size:9px; font-weight:700; letter-spacing:.8px; color:#4a5080;
+  padding:6px 2px 4px; text-transform:uppercase; border-top:1px solid #1a1d35; margin-top:4px;
+}
+.srch-section-hdr:first-child { border-top:none; margin-top:0; }
+.srch-count {
+  background:#1e2240; color:#6870a0; border-radius:8px;
+  padding:0 5px; font-size:9px; font-weight:600; margin-left:5px;
+}
+.srch-row {
+  display:flex; align-items:center; gap:8px;
+  padding:5px 6px; border-radius:4px; text-decoration:none;
+  cursor:pointer; margin-bottom:2px;
+}
+.srch-row:hover { background:#1a1d35; }
+.srch-ep   { font-size:10px; color:#f0b429; font-weight:700; min-width:35px; }
+.srch-sc   { font-size:10px; color:#7090c0; min-width:48px; font-weight:600; }
+.srch-main { flex:1; display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+.srch-loc  { font-size:11px; color:#d0d8f0; font-weight:600; }
+.srch-desc { font-size:10px; color:#7880a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px; }
+.srch-asset{ font-size:10px; color:#52c46a; }
+.srch-asset-name { font-size:11px; color:#d0d8f0; font-weight:600; }
+.srch-type { font-size:9px; color:#4a9cf0; background:rgba(74,156,240,.12);
+             padding:1px 5px; border-radius:3px; }
+.srch-vendor { font-size:10px; color:#6870a0; white-space:nowrap; margin-left:auto; }
+</style>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

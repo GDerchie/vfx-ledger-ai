@@ -1,0 +1,12 @@
+{
+  "provider": "ollama",
+  "ollama_model": "qwen2.5:7b",
+  "ollama_url": "http://localhost:11434",
+  "claude_model": "claude-haiku-4-5-20251001",
+  "claude_api_key": "",
+  "openai_model": "gpt-4o-mini",
+  "openai_api_key": "",
+  "openai_base_url": "https://api.openai.com/v1",
+  "max_tokens": 600,
+  "temperature": 0.3
+}

@@ -1,0 +1,19 @@
+name: invoice_check
+version: 1
+output_schema:
+  type: object
+  properties:
+    status:
+      type: string
+      enum: [ok, warning, flag]
+    message:
+      type: string
+retry_on_parse_fail: true
+template: |
+  Vendor: {vendor}  Episode: {ep}
+  Total Awarded: ${tot_award}
+  Previously Paid: ${paid}
+  This Invoice: ${amount}  ({inv_num}, {inv_date})
+  Remaining after this invoice: ${remaining}
+  ---
+  Evaluate if this invoice amount is consistent with the award and payment history. Flag any concerns. Reply with ONLY valid JSON: {{"status": "ok", "message": "one sentence"}}

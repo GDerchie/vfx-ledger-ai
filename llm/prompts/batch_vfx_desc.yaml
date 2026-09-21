@@ -1,0 +1,10 @@
+name: batch_vfx_desc
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Write a one-sentence VFX description for each shot below. Focus on what must be created or manipulated digitally. For each shot reply on its own line: ID|Description
+
+  {shots_list}
+  ---
+  Reply with ONLY the ID|Description lines, one per shot, nothing else.

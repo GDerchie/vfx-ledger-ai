@@ -4,7 +4,7 @@
 {% block content %}
 <!-- Toolbar -->
 <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-  <h5 class="mb-0 fw-bold text-warning">
+  <h5 class="mb-0 fw-bold text-warning" id="assets-panel-header">
     <i class="bi bi-box-seam me-2"></i>ASSETS
   </h5>
 
@@ -45,6 +45,40 @@
 
 <div id="err-msg" class="text-danger small mb-2" style="display:none;"></div>
 <div id="asset-table"></div>
+
+<!-- AI Asset Description Modal -->
+<div class="modal fade" id="assetAIModal" tabindex="-1">
+  <div class="modal-dialog" style="margin-top:80px;max-width:560px;">
+    <div class="modal-content" style="background:#0d0e18;border:1px solid #2e3050;">
+      <div class="modal-header" style="background:#12152a;border-bottom:1px solid #2e3050;padding:10px 16px;">
+        <span style="font-size:13px;font-weight:700;color:#f0b429;">✨ AI — Asset Description</span>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:14px 18px;">
+        <div style="font-size:11px;color:#7880a0;margin-bottom:12px;">
+          <span style="color:#d0d8f0;font-weight:600;" id="aai-name"></span>
+          &nbsp;·&nbsp;<span id="aai-type"></span>
+          &nbsp;·&nbsp;SC&nbsp;<span id="aai-sc"></span>
+          &nbsp;·&nbsp;EP&nbsp;<span id="aai-ep"></span>
+        </div>
+        <div class="ai-section">
+          <div class="ai-section-lbl">Current Description</div>
+          <div class="ai-cur-val" id="aai-cur-desc">(none)</div>
+        </div>
+        <div class="ai-section" style="border-bottom:none;padding-bottom:0;">
+          <div class="ai-section-lbl">AI Suggestion</div>
+          <button class="ai-btn" id="aai-gen-btn" onclick="assetAIGenerate()"
+                  style="font-size:12px;padding:3px 12px;">✨ Generate Description</button>
+          <div class="ai-preview" id="aai-preview"></div>
+          <div class="ai-actions" id="aai-actions">
+            <button class="ai-accept">Accept &amp; Save</button>
+            <button class="ai-discard">Discard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Import Modal -->
 <div class="modal fade" id="importModal" tabindex="-1">
@@ -90,6 +124,18 @@
 let assetTable = null;
 let allAssets  = [];
 let allVendors = [];
+let shotCounts = {};   // scene_code → shot count
+
+// ── Save guard + indicator (Opt #8 / #11) ────────────────────────────────────
+let _assetGuard     = null;
+let _assetIndicator = null;
+
+async function loadShotCounts() {
+  try {
+    const res  = await fetch('/api/shots/scene_counts');
+    shotCounts = await res.json();
+  } catch(e) { shotCounts = {}; }
+}
 
 const eps = Array.from(
   {length: {{ session.get('ep_end', 108) - session.get('ep_start', 101) + 1 }}},
@@ -150,6 +196,18 @@ function buildColumns(vendors) {
       formatter: c => `<a href="/ep/${c.getValue()}" style="color:#f0b429;text-decoration:none;font-weight:600;">EP${c.getValue()}</a>` },
     { title:'SC',     field:'scene_code', width:55,
       formatter: c => `<b style="color:#e0e6ff;">${c.getValue()||''}</b>` },
+    { title:'SHOTS',  field:'_shot_count', width:60, hozAlign:'center', headerSort:true,
+      formatter: c => {
+        const row = c.getRow().getData();
+        const sc  = String(row.scene_code || '').trim();
+        const n   = shotCounts[sc] || 0;
+        if (!n) return '<span style="color:#2a2e50;font-size:10px;">—</span>';
+        return `<a href="/ep/${row.ep}" title="View EP${row.ep} shots for SC ${sc}"
+                   style="color:#4a9cf0;font-weight:700;font-size:11px;text-decoration:none;
+                          background:rgba(74,156,240,.1);padding:1px 6px;border-radius:3px;"
+                >${n}</a>`;
+      }
+    },
     { title:'ASSET',  field:'asset_name', width:140,
       formatter: c => `<span style="color:#d0d8f0;font-weight:600;">${c.getValue()||''}</span>` },
     { title:'TYPE',   field:'asset_type', width:90,
@@ -171,10 +229,15 @@ function buildColumns(vendors) {
     },
     { title:'NOTES',  field:'notes',      width:150, editor:'input',
       cellEdited: async function(cell) {
-        await fetch(`/api/assets/${cell.getRow().getData().id}`, {
-          method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({notes: cell.getValue()||''})
-        });
+        _assetGuard?.setPending(true); _assetIndicator?.saving();
+        try {
+          await fetch(`/api/assets/${cell.getRow().getData().id}`, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({notes: cell.getValue()||''})
+          });
+          _assetIndicator?.saved();
+        } catch(e) { _assetIndicator?.error(); }
+        finally { _assetGuard?.setPending(false); }
       },
       formatter: c => `<span style="color:#7080a0;">${c.getValue()||''}</span>`
     },
@@ -195,11 +258,16 @@ function buildColumns(vendors) {
       cellEdited: async function(cell) {
         const row = cell.getRow();
         const award = (cell.getValue()||'').trim();
-        await fetch(`/api/assets/${row.getData().id}`, {
-          method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({award_vendor: award})
-        });
-        row.reformat();
+        _assetGuard?.setPending(true); _assetIndicator?.saving();
+        try {
+          await fetch(`/api/assets/${row.getData().id}`, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({award_vendor: award})
+          });
+          row.reformat();
+          _assetIndicator?.saved();
+        } catch(e) { _assetIndicator?.error(); }
+        finally { _assetGuard?.setPending(false); }
       },
       formatter: c => {
         const v = c.getValue();
@@ -208,6 +276,13 @@ function buildColumns(vendors) {
       }
     },
   ];
+
+  // ✨ AI column
+  cols.push({
+    title: '✨', field: '_ai', width: 35, hozAlign: 'center', headerSort: false,
+    formatter: () => '<span style="cursor:pointer;font-size:11px;" title="AI Description">✨</span>',
+    cellClick: (e, cell) => openAssetAIModal(cell.getRow().getData()),
+  });
 
   vendors.forEach(v => {
     cols.push({
@@ -245,7 +320,8 @@ function filterRows(rows) {
 function flattenRows(rows) {
   return rows.map(r => {
     const flat = Object.assign({}, r);
-    flat._variance = (r.actual_spend||0) - (r.est_budget||0);
+    flat._variance   = (r.actual_spend||0) - (r.est_budget||0);
+    flat._shot_count = shotCounts[String(r.scene_code||'').trim()] || 0;
     const bids = r.vendor_bids || {};
     allVendors.forEach(v => { flat['_v_'+v] = bids[v] !== undefined ? bids[v] : null; });
     return flat;
@@ -274,6 +350,7 @@ async function loadData() {
     allAssets  = await dataRes.json();
     allVendors = await vendorRes.json();
     const summary = await summaryRes.json();
+    await loadShotCounts();
 
     populateTypeFilter(allAssets);
     buildSummaryCards(summary);
@@ -285,6 +362,7 @@ async function loadData() {
 
     if (!assetTable) {
       assetTable = new Tabulator('#asset-table', {
+        ...TABULATOR_PERF,
         data:        flat,
         columns:     cols,
         layout:      'fitData',
@@ -360,12 +438,92 @@ async function clearData() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Opt #8: unsaved guard; #11: save indicator
+  _assetGuard     = initUnsavedGuard();
+  _assetIndicator = initSaveIndicator('assets-panel-header');
   populateEpFilters();
   document.getElementById('ep-filter').addEventListener('change', applyFilters);
   document.getElementById('type-filter').addEventListener('change', applyFilters);
   document.getElementById('show-omit').addEventListener('change', applyFilters);
   loadData();
+  // Opt #14: orphaned asset warning
+  fetch('/api/assets/orphaned').then(r=>r.json()).then(rows => {
+    if (rows.length > 0) {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:#2a1010;border:1px solid #e05252;border-radius:5px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#e05252;';
+      banner.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i><strong>${rows.length} orphaned asset${rows.length>1?'s':''}</strong> — not linked to any shot. Review and assign scene codes.`;
+      document.getElementById('summary-row').insertAdjacentElement('beforebegin', banner);
+    }
+  }).catch(()=>{});
+  // Opt #9: keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); loadData(); }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); if (assetTable) assetTable.download('csv','assets.csv'); }
+  });
 });
+
+// ── AI Asset Description ───────────────────────────────────────────────────────
+let _assetAIModal = null;
+let _assetAIRow   = null;
+
+function openAssetAIModal(row) {
+  _assetAIRow = row;
+  if (!_assetAIModal)
+    _assetAIModal = new bootstrap.Modal(document.getElementById('assetAIModal'));
+
+  document.getElementById('aai-name').textContent = row.asset_name || '—';
+  document.getElementById('aai-type').textContent = row.asset_type || '—';
+  document.getElementById('aai-sc').textContent   = row.scene_code || '—';
+  document.getElementById('aai-ep').textContent   = row.ep || '—';
+
+  const curDesc = (row.description || '').trim();
+  const curEl   = document.getElementById('aai-cur-desc');
+  curEl.textContent = curDesc || '(none)';
+  curEl.className   = 'ai-cur-val' + (curDesc ? ' has-val' : '');
+
+  // reset UI
+  const prev = document.getElementById('aai-preview');
+  const acts = document.getElementById('aai-actions');
+  const btn  = document.getElementById('aai-gen-btn');
+  prev.style.display = 'none'; prev.textContent = '';
+  acts.style.display = 'none';
+  btn.disabled = false; btn.innerHTML = '✨ Generate Description';
+
+  _assetAIModal.show();
+}
+
+function assetAIGenerate() {
+  const row = _assetAIRow;
+  llmUI({
+    task:    'asset_desc',
+    context: {
+      asset_name: row.asset_name || '',
+      asset_type: row.asset_type || '',
+      scene_code: row.scene_code || '',
+      ep:         row.ep || '',
+    },
+    genBtn:    document.getElementById('aai-gen-btn'),
+    previewEl: document.getElementById('aai-preview'),
+    actionsEl: document.getElementById('aai-actions'),
+    onAccept: async (text) => {
+      const desc = text.trim();
+      await fetch(`/api/assets/${row.id}`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description: desc}),
+      });
+      // update in-memory + table
+      const asset = allAssets.find(a => a.id === row.id);
+      if (asset) asset.description = desc;
+      if (assetTable) {
+        const tRow = assetTable.getRow(row.id);
+        if (tRow) tRow.update({description: desc});
+      }
+      document.getElementById('aai-cur-desc').textContent = desc;
+      document.getElementById('aai-cur-desc').className = 'ai-cur-val has-val';
+      if (_assetAIModal) _assetAIModal.hide();
+    },
+  });
+}
 </script>
 
 <style>

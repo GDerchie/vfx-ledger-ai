@@ -1,0 +1,657 @@
+{% extends "base.html" %}
+{% block title %}Season Dashboard – VFX Budget System{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center mb-3 gap-3">
+  <div>
+    <h5 class="mb-0 text-warning fw-bold">SEASON DASHBOARD</h5>
+    <div class="text-muted" style="font-size:11px;">Cross-episode budget overview &amp; risk summary</div>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm btn-outline-secondary" onclick="loadDashboard()">
+      <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+    </button>
+    <button class="btn btn-sm" id="action-items-btn" onclick="toggleActionItems()"
+            style="border-color:#e05252;color:#e05252;background:transparent;position:relative;">
+      <i class="bi bi-exclamation-triangle me-1"></i>Action Items
+      <span id="action-badge" style="display:none;position:absolute;top:-5px;right:-5px;
+        background:#e05252;color:#fff;font-size:8px;font-weight:700;width:16px;height:16px;
+        border-radius:50%;display:flex;align-items:center;justify-content:center;"></span>
+    </button>
+    <button class="btn btn-sm" id="risk-memo-btn" onclick="openRiskMemo()"
+            style="border-color:#4a9cf0;color:#4a9cf0;background:transparent;">
+      ✨ Season Risk Memo
+    </button>
+  </div>
+</div>
+
+<!-- Season Risk Memo Panel -->
+<div id="risk-panel" style="display:none;background:#0d0f1c;border:1px solid #2a3060;
+     border-radius:5px;padding:14px 16px;margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.7px;color:#4a9cf0;">
+      ✨ AI SEASON RISK MEMO
+    </span>
+    <button onclick="document.getElementById('risk-panel').style.display='none'"
+            style="background:none;border:none;color:#4a5080;cursor:pointer;font-size:14px;">✕</button>
+  </div>
+  <div id="risk-output" style="font-size:12px;color:#d0d8f0;white-space:pre-wrap;
+       line-height:1.7;min-height:60px;"></div>
+</div>
+
+<!-- ── ACTION ITEMS PANEL ──────────────────────────────────────────────────── -->
+<div id="action-items-panel" style="display:none;background:#0d0f1c;border:1px solid #3a1818;
+     border-radius:5px;padding:12px 16px;margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.7px;color:#e05252;">
+      <i class="bi bi-exclamation-triangle me-1"></i>ACTION ITEMS — REQUIRES ATTENTION
+    </span>
+    <button onclick="document.getElementById('action-items-panel').style.display='none'"
+            style="background:none;border:none;color:#4a5080;cursor:pointer;font-size:14px;">✕</button>
+  </div>
+  <div id="action-items-list"></div>
+</div>
+
+<!-- ── KPI CARDS ─────────────────────────────────────────────────────────── -->
+<div class="row g-2 mb-3" id="kpi-row">
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="vfx-card kpi-card">
+      <div class="kpi-label">TOTAL SHOTS</div>
+      <div class="kpi-val" id="kpi-shots">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="vfx-card kpi-card">
+      <div class="kpi-label">SEASON EST</div>
+      <div class="kpi-val text-warning" id="kpi-est">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="vfx-card kpi-card">
+      <div class="kpi-label">SEASON EFC</div>
+      <div class="kpi-val" id="kpi-efc">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="vfx-card kpi-card">
+      <div class="kpi-label">VARIANCE</div>
+      <div class="kpi-val" id="kpi-var">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="vfx-card kpi-card">
+      <div class="kpi-label">ASSETS</div>
+      <div class="kpi-val" id="kpi-assets">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="vfx-card kpi-card">
+      <div class="kpi-label">VENDORS</div>
+      <div class="kpi-val" id="kpi-vendors">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── BURN CHART ─────────────────────────────────────────────────────────── -->
+<div class="vfx-card mb-3">
+  <div class="vfx-card-header d-flex align-items-center gap-2">
+    <i class="bi bi-bar-chart-fill text-warning"></i>
+    <span>BUDGET vs EFC BY EPISODE</span>
+  </div>
+  <div style="padding:12px;">
+    <canvas id="burn-chart" style="width:100%;max-height:220px;"></canvas>
+  </div>
+</div>
+
+<!-- ── PREDICTIVE EFC PANEL ────────────────────────────────────────────────── -->
+<div class="vfx-card mb-3" id="predictive-panel">
+  <div class="vfx-card-header d-flex align-items-center gap-2">
+    <i class="bi bi-graph-up-arrow text-warning"></i>
+    <span>PREDICTIVE EFC — DELIVERY RATIO MODEL</span>
+    <span style="font-size:9px;color:#4a5080;margin-left:4px;">actuals-anchored per vendor × type</span>
+    <span id="pred-loading" style="font-size:9px;color:#4a5080;margin-left:auto;">Loading…</span>
+  </div>
+  <div style="padding:10px 12px;">
+    <div id="pred-kpis" class="d-flex gap-3 mb-2" style="flex-wrap:wrap;"></div>
+    <div id="pred-ep-bars"></div>
+  </div>
+</div>
+
+<!-- ── EP TABLE + VENDOR TABLE ────────────────────────────────────────────── -->
+<div class="row g-2 mb-3">
+  <div class="col-lg-7">
+    <div class="vfx-card h-100">
+      <div class="vfx-card-header">
+        <i class="bi bi-film text-warning me-1"></i>EPISODE BREAKDOWN
+      </div>
+      <div style="padding:8px;">
+        <div id="ep-table"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="vfx-card h-100">
+      <div class="vfx-card-header">
+        <i class="bi bi-building text-warning me-1"></i>TOP VENDORS BY EFC
+      </div>
+      <div style="padding:8px;">
+        <div id="vendor-table"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── VENDOR HEALTH CARDS ─────────────────────────────────────────────────── -->
+<div class="vfx-card mb-3">
+  <div class="vfx-card-header d-flex align-items-center gap-2">
+    <i class="bi bi-building-check text-warning"></i>
+    <span>VENDOR HEALTH</span>
+    <span style="font-size:9px;color:#4a5080;margin-left:4px;">capacity · performance · payment status</span>
+  </div>
+  <div style="padding:10px 12px;">
+    <div id="vendor-health-row" style="display:flex;flex-wrap:wrap;gap:8px;">
+      <div style="color:#4a5080;font-size:10px;">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── RISK FORECAST ──────────────────────────────────────────────────────── -->
+<div class="vfx-card mb-3">
+  <div class="vfx-card-header d-flex align-items-center gap-2">
+    <i class="bi bi-shield-exclamation text-warning"></i>
+    <span>DELIVERY RISK FORECAST</span>
+    <span style="font-size:9px;color:#4a5080;margin-left:4px;">
+      capacity ×0.45 · complexity ×0.30 · confidence ×0.25
+    </span>
+  </div>
+  <div style="padding:10px 12px;" id="risk-forecast-panel">
+    <div style="color:#4a5080;font-size:10px;">Loading…</div>
+  </div>
+</div>
+
+<!-- ── TYPE + COMPLEXITY + RECENT CHANGES ─────────────────────────────────── -->
+<div class="row g-2">
+  <div class="col-md-4">
+    <div class="vfx-card">
+      <div class="vfx-card-header"><i class="bi bi-tags text-warning me-1"></i>SHOT TYPES</div>
+      <div style="padding:8px;" id="type-breakdown"></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="vfx-card">
+      <div class="vfx-card-header"><i class="bi bi-layers text-warning me-1"></i>COMPLEXITY</div>
+      <div style="padding:8px;" id="complexity-breakdown"></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="vfx-card">
+      <div class="vfx-card-header"><i class="bi bi-clock-history text-warning me-1"></i>RECENT CHANGES</div>
+      <div style="padding:8px;" id="recent-changes"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+.kpi-card   { padding:12px 14px; text-align:center; }
+.kpi-label  { font-size:8px; font-weight:700; letter-spacing:.8px; color:#6870a0;
+               text-transform:uppercase; margin-bottom:4px; }
+.kpi-val    { font-size:20px; font-weight:700; color:#d0d8f0; }
+.vfx-card-header { font-size:10px; font-weight:700; letter-spacing:.6px; color:#8090b0;
+                    padding:8px 12px 4px; border-bottom:1px solid #1e2240; }
+.dash-tbl   { width:100%; border-collapse:collapse; font-size:11px; }
+.dash-tbl th{ color:#6870a0; font-size:9px; font-weight:700; letter-spacing:.5px;
+               text-transform:uppercase; padding:4px 6px; border-bottom:1px solid #1e2240; }
+.dash-tbl td{ padding:5px 6px; color:#d0d8f0; border-bottom:1px solid #111425; }
+.dash-tbl tr:last-child td { border-bottom:none; }
+.dash-tbl tr:hover td { background:#1a1d35; }
+.bar-wrap    { display:flex; align-items:center; gap:6px; font-size:10px; }
+.bar-bg      { flex:1; height:8px; background:#1a1d35; border-radius:4px; overflow:hidden; }
+.bar-fill    { height:100%; border-radius:4px; }
+.pill-over   { display:inline-block; font-size:9px; font-weight:700; padding:1px 6px;
+               border-radius:8px; }
+.pill-pos    { background:rgba(224,82,82,.15); color:#e05252; border:1px solid rgba(224,82,82,.3); }
+.pill-neg    { background:rgba(82,196,106,.15); color:#52c46a; border:1px solid rgba(82,196,106,.3); }
+</style>
+<script>
+let _burnChart = null;
+
+// ── Risk helpers ──────────────────────────────────────────────────────────────
+const RISK_COLORS = {
+  'SAFE':      { bg: 'rgba(82,196,106,.15)', border: 'rgba(82,196,106,.4)',  text: '#52c46a' },
+  'WATCH':     { bg: 'rgba(240,180,41,.15)', border: 'rgba(240,180,41,.4)', text: '#f0b429' },
+  'AT RISK':   { bg: 'rgba(224,130,50,.15)', border: 'rgba(224,130,50,.4)', text: '#e08232' },
+  'HIGH RISK': { bg: 'rgba(224,82,82,.15)',  border: 'rgba(224,82,82,.4)',   text: '#e05252' },
+};
+
+function riskPillHtml(status, delay) {
+  const c = RISK_COLORS[status] || RISK_COLORS['SAFE'];
+  const delayTxt = delay > 0 ? ` +${delay}d` : '';
+  return `<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;
+    border-radius:8px;background:${c.bg};border:1px solid ${c.border};color:${c.text};">
+    ${status}${delayTxt}</span>`;
+}
+
+function renderRiskForecast(riskData) {
+  const panel = document.getElementById('risk-forecast-panel');
+  if (!riskData || !riskData.length) {
+    panel.innerHTML = '<div style="color:#4a5080;font-size:10px;">No shot data — add shots and vendor assignments first.</div>';
+    return;
+  }
+
+  // EP cards row
+  let cardsHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
+  for (const r of riskData) {
+    if (!r.shot_count) continue;
+    const c = RISK_COLORS[r.status] || RISK_COLORS['SAFE'];
+    const delayLine = r.predicted_delay_days > 0
+      ? `<div style="font-size:9px;color:#8090b0;margin-top:2px;">+${r.predicted_delay_days}d delay risk</div>`
+      : `<div style="font-size:9px;color:#52c46a;margin-top:2px;">on track</div>`;
+    cardsHtml += `
+      <div style="background:${c.bg};border:1px solid ${c.border};border-radius:6px;
+                  padding:8px 12px;min-width:90px;text-align:center;">
+        <div style="font-size:9px;font-weight:700;color:#8090b0;letter-spacing:.6px;">EP${r.ep}</div>
+        <div style="font-size:13px;font-weight:700;color:${c.text};margin:2px 0;">${r.status}</div>
+        ${delayLine}
+        <div style="font-size:9px;color:#4a5080;margin-top:3px;">score ${r.risk_score.toFixed(2)}</div>
+      </div>`;
+  }
+  cardsHtml += '</div>';
+
+  // Breakdown table
+  let tblHtml = `<table class="dash-tbl">
+    <tr>
+      <th>EP</th><th>SHOTS</th>
+      <th title="Vendor overload stress (weight 45%)">CAP RISK</th>
+      <th title="HERO/HIGH shot density (weight 30%)">CMP RISK</th>
+      <th title="Bid pricing uncertainty (weight 25%)">CONF RISK</th>
+      <th>SCORE</th><th>DELAY</th><th>STATUS</th>
+    </tr>`;
+  for (const r of riskData) {
+    if (!r.shot_count) continue;
+    const c = RISK_COLORS[r.status] || RISK_COLORS['SAFE'];
+    const barW = v => `<div style="display:inline-block;width:${Math.round(v*60)}px;height:6px;
+      background:${c.text};border-radius:3px;vertical-align:middle;opacity:.7;"></div>
+      <span style="font-size:9px;color:#8090b0;margin-left:4px;">${(v*100).toFixed(0)}%</span>`;
+    tblHtml += `<tr>
+      <td style="font-weight:700;color:#f0b429;">EP${r.ep}</td>
+      <td style="text-align:right;">${r.shot_count}</td>
+      <td>${barW(r.capacity_risk)}</td>
+      <td>${barW(r.complexity_risk)}</td>
+      <td>${barW(r.confidence_risk)}</td>
+      <td style="font-weight:700;color:${c.text};">${r.risk_score.toFixed(3)}</td>
+      <td style="color:#8090b0;">${r.predicted_delay_days > 0 ? '+'+r.predicted_delay_days+'d' : '—'}</td>
+      <td>${riskPillHtml(r.status, 0)}</td>
+    </tr>`;
+  }
+  tblHtml += '</table>';
+
+  panel.innerHTML = cardsHtml + tblHtml;
+}
+
+function fmtK(v) {
+  if (!v) return '$0';
+  if (Math.abs(v) >= 1_000_000) return '$' + (v/1_000_000).toFixed(1) + 'M';
+  if (Math.abs(v) >= 1_000)     return '$' + (v/1_000).toFixed(0) + 'K';
+  return '$' + v.toFixed(0);
+}
+function fmtFull(v) {
+  if (!v) return '$0';
+  return '$' + Math.round(v).toLocaleString('en-US');
+}
+
+// ── Action Items ──────────────────────────────────────────────────────────────
+let _actionItemsLoaded = false;
+function toggleActionItems() {
+  const panel = document.getElementById('action-items-panel');
+  const shown = panel.style.display !== 'none';
+  panel.style.display = shown ? 'none' : 'block';
+  if (!shown && !_actionItemsLoaded) loadActionItems();
+}
+async function loadActionItems() {
+  _actionItemsLoaded = true;
+  const list = document.getElementById('action-items-list');
+  list.innerHTML = '<div style="color:#4a5080;font-size:10px;">Checking…</div>';
+  try {
+    const items = await fetch('/api/dashboard/action_items').then(r => r.json());
+    const badge = document.getElementById('action-badge');
+    const critCount = items.filter(i => i.severity === 'critical').length;
+    if (critCount > 0) {
+      badge.style.display = 'flex'; badge.textContent = critCount;
+      document.getElementById('action-items-panel').style.display = 'block';
+    }
+    if (!items.length) {
+      list.innerHTML = '<div style="color:#52c46a;font-size:11px;"><i class="bi bi-check-circle me-1"></i>All clear — no action items</div>';
+      return;
+    }
+    const SEV_COLORS = { critical: '#e05252', warning: '#f0b429', info: '#4a9cf0' };
+    const SEV_BG     = { critical: 'rgba(224,82,82,.08)', warning: 'rgba(240,180,41,.08)', info: 'rgba(74,156,240,.08)' };
+    let html = '';
+    for (const item of items) {
+      const col = SEV_COLORS[item.severity] || '#8090b0';
+      const bg  = SEV_BG[item.severity]    || 'transparent';
+      html += `<div style="display:flex;align-items:baseline;gap:8px;padding:6px 8px;
+               margin-bottom:4px;border-radius:4px;background:${bg};border-left:2px solid ${col};">
+        <span style="font-size:9px;font-weight:700;color:${col};text-transform:uppercase;
+              min-width:52px;">${item.severity}</span>
+        <span style="font-size:11px;color:#d0d8f0;flex:1;">${item.message}</span>
+        ${item.link ? `<a href="${item.link}" style="font-size:9px;color:#4a9cf0;white-space:nowrap;">view →</a>` : ''}
+      </div>`;
+    }
+    list.innerHTML = html;
+  } catch(e) {
+    list.innerHTML = `<div style="color:#e05252;font-size:10px;">Error: ${e}</div>`;
+  }
+}
+
+// ── Predictive EFC ────────────────────────────────────────────────────────────
+async function loadPredictive() {
+  const loading = document.getElementById('pred-loading');
+  try {
+    const d = await fetch('/api/dashboard/predictive').then(r => r.json());
+    if (d.error) { loading.textContent = d.error; return; }
+    loading.textContent = '';
+    const s = d.summary || {};
+    const kpisEl = document.getElementById('pred-kpis');
+    const delta  = (s.total_predicted || 0) - (s.total_efc || 0);
+    const pct    = s.total_efc ? ((delta / s.total_efc) * 100).toFixed(1) : 0;
+    kpisEl.innerHTML = `
+      <div style="background:#10121e;border:1px solid #1e2240;border-radius:5px;padding:8px 12px;min-width:110px;">
+        <div class="kpi-label">CURRENT EFC</div>
+        <div style="font-size:16px;font-weight:700;color:#f0b429;">${fmtK(s.total_efc)}</div>
+      </div>
+      <div style="background:#10121e;border:1px solid #1e2240;border-radius:5px;padding:8px 12px;min-width:110px;">
+        <div class="kpi-label">PREDICTED EFC</div>
+        <div style="font-size:16px;font-weight:700;color:#4a9cf0;">${fmtK(s.total_predicted)}</div>
+      </div>
+      <div style="background:#10121e;border:1px solid #1e2240;border-radius:5px;padding:8px 12px;min-width:110px;">
+        <div class="kpi-label">DELTA</div>
+        <div style="font-size:16px;font-weight:700;color:${delta > 0 ? '#e05252' : '#52c46a'};">
+          ${delta >= 0 ? '+' : ''}${fmtK(delta)} <span style="font-size:10px;">(${pct}%)</span>
+        </div>
+      </div>`;
+
+    const byEp  = d.by_ep || {};
+    const maxV  = Math.max(...Object.values(byEp).map(e => Math.max(e.total_predicted||0, e.total_est||0)), 1);
+    let barsHtml = '<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">';
+    for (const [ep, epd] of Object.entries(byEp)) {
+      const predW = Math.round((epd.total_predicted / maxV) * 100);
+      const estW  = Math.round((epd.total_est       / maxV) * 100);
+      barsHtml += `<div style="display:grid;grid-template-columns:40px 1fr 80px 80px;align-items:center;gap:8px;font-size:10px;">
+        <span style="color:#f0b429;font-weight:700;">EP${ep}</span>
+        <div style="position:relative;height:14px;background:#1a1d35;border-radius:3px;overflow:hidden;">
+          <div style="position:absolute;height:100%;width:${estW}%;background:rgba(74,156,240,.35);"></div>
+          <div style="position:absolute;height:100%;width:${predW}%;background:rgba(74,156,240,.7);border-radius:3px;"></div>
+        </div>
+        <span style="color:#8090b0;text-align:right;">est ${fmtK(epd.total_est)}</span>
+        <span style="color:#4a9cf0;text-align:right;">pred ${fmtK(epd.total_predicted)}</span>
+      </div>`;
+    }
+    barsHtml += '</div>';
+    document.getElementById('pred-ep-bars').innerHTML = Object.keys(byEp).length ? barsHtml
+      : '<div style="color:#4a5080;font-size:10px;">No delivery ratio data yet — add vendor actuals to enable prediction.</div>';
+  } catch(e) {
+    document.getElementById('pred-loading').textContent = 'Unavailable';
+  }
+}
+
+// ── Vendor Health ─────────────────────────────────────────────────────────────
+async function loadVendorHealth() {
+  const row = document.getElementById('vendor-health-row');
+  try {
+    const vendors = await fetch('/api/dashboard/vendor_health').then(r => r.json());
+    if (!vendors.length) {
+      row.innerHTML = '<div style="color:#4a5080;font-size:10px;">No vendor data</div>';
+      return;
+    }
+    const CAP_COLORS = { over: '#e05252', high: '#f0b429', medium: '#4a9cf0', low: '#52c46a', unknown: '#4a5080' };
+    let html = '';
+    for (const v of vendors) {
+      const col    = CAP_COLORS[v.capacity_status] || '#4a5080';
+      const util   = v.utilization != null ? `${(v.utilization*100).toFixed(0)}%` : '—';
+      const perf   = v.perf_score  != null ? v.perf_score.toFixed(2) : '—';
+      const payPct = (v.paid_amount && (v.paid_amount + v.pending_amount) > 0)
+        ? Math.round(v.paid_amount / (v.paid_amount + v.pending_amount) * 100) : 0;
+      html += `<div style="background:#0d0f1c;border:1px solid #1e2240;border-radius:6px;
+               padding:10px 12px;min-width:130px;max-width:160px;border-top:2px solid ${col};">
+        <div style="font-size:10px;font-weight:700;color:#d0d8f0;margin-bottom:6px;
+             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.vendor}</div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px;">
+          <span style="color:#6870a0;">CAPACITY</span>
+          <span style="color:${col};font-weight:700;">${util}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px;">
+          <span style="color:#6870a0;">PERF</span>
+          <span style="color:#d0d8f0;">${perf}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:4px;">
+          <span style="color:#6870a0;">INVOICES</span>
+          <span style="color:#8090b0;">${v.total_invoices}</span>
+        </div>
+        <div style="height:4px;background:#1a1d35;border-radius:2px;">
+          <div style="height:100%;width:${payPct}%;background:#52c46a;border-radius:2px;"></div>
+        </div>
+        <div style="font-size:8px;color:#4a5080;margin-top:2px;text-align:right;">${payPct}% paid</div>
+      </div>`;
+    }
+    row.innerHTML = html;
+  } catch(e) {
+    row.innerHTML = `<div style="color:#e05252;font-size:10px;">Error: ${e}</div>`;
+  }
+}
+
+async function loadDashboard() {
+  const [sumRes, burnRes, riskRes] = await Promise.all([
+    fetch('/api/dashboard/summary'),
+    fetch('/api/dashboard/burn'),
+    fetch('/api/risk_forecast'),
+  ]);
+  const data = await sumRes.json();
+  const burn = await burnRes.json();
+  const riskData = await riskRes.json();
+
+  // Build ep -> risk lookup
+  const riskMap = {};
+  for (const r of riskData) riskMap[r.ep] = r;
+
+  const s = data.season;
+
+  // KPIs
+  document.getElementById('kpi-shots').textContent   = (s.total_shots || 0).toLocaleString();
+  document.getElementById('kpi-est').textContent      = fmtK(s.total_est);
+  document.getElementById('kpi-assets').textContent   = (s.asset_count || 0).toLocaleString();
+  document.getElementById('kpi-vendors').textContent  = (s.vendor_count || 0);
+
+  const efcEl = document.getElementById('kpi-efc');
+  efcEl.textContent = fmtK(s.total_efc);
+
+  const varEl = document.getElementById('kpi-var');
+  varEl.textContent = (s.variance >= 0 ? '+' : '') + fmtK(s.variance);
+  varEl.style.color = s.variance > 0 ? '#e05252' : '#52c46a';
+
+  // Burn chart
+  const labels = burn.map(r => 'EP' + r.ep);
+  const estArr = burn.map(r => r.est);
+  const efcArr = burn.map(r => r.efc);
+  const ctx = document.getElementById('burn-chart').getContext('2d');
+  if (_burnChart) _burnChart.destroy();
+  _burnChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'EST',  data: estArr, backgroundColor: 'rgba(74,156,240,.55)', borderColor: '#4a9cf0', borderWidth: 1 },
+        { label: 'EFC',  data: efcArr, backgroundColor: 'rgba(240,180,41,.45)', borderColor: '#f0b429', borderWidth: 1 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8090b0', font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#8090b0', font: { size: 10 } }, grid: { color: '#1a1d35' } },
+        y: { ticks: { color: '#8090b0', font: { size: 10 },
+                      callback: v => fmtK(v) },
+             grid: { color: '#1a1d35' } },
+      },
+    },
+  });
+  document.getElementById('burn-chart').style.maxHeight = '220px';
+
+  // EP breakdown table
+  const maxBudget = Math.max(...data.episodes.map(r => r.est_budget || 0), 1);
+  let epHtml = `<table class="dash-tbl">
+    <tr><th>EP</th><th>STATUS</th><th>EST SHOTS</th><th>EDIT</th><th>BUDGET EST</th><th>EFC</th><th>VAR</th><th>BURN</th><th>RISK</th><th></th></tr>`;
+  for (const r of data.episodes) {
+    const varCls = r.variance > 0 ? 'pill-pos' : (r.variance < -100 ? 'pill-neg' : '');
+    const barPct = Math.min(100, Math.round((r.efc_budget / maxBudget) * 100));
+    const barColor = r.variance > 0 ? '#e05252' : '#4a9cf0';
+    const risk = riskMap[r.ep];
+    const riskPill = risk ? riskPillHtml(risk.status, risk.predicted_delay_days) : '<span style="color:#4a5080;font-size:9px;">—</span>';
+    epHtml += `<tr>
+      <td><a href="/ep/${r.ep}" style="color:#f0b429;font-weight:700;">EP${r.ep}</a></td>
+      <td style="font-size:9px;color:#8090b0;">${r.status || '—'}</td>
+      <td style="text-align:right;">${r.est_shots}</td>
+      <td style="text-align:right;">${r.edit_shots}</td>
+      <td style="text-align:right;">${fmtK(r.est_budget)}</td>
+      <td style="text-align:right;">${fmtK(r.efc_budget)}</td>
+      <td><span class="pill-over ${varCls}">${r.variance >= 0 ? '+' : ''}${fmtK(r.variance)}</span></td>
+      <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${barPct}%;background:${barColor};"></div></div></div></td>
+      <td>${riskPill}</td>
+      <td><a href="/api/export/ep/${r.ep}.pdf" style="color:#6870a0;font-size:9px;" title="PDF One-Pager"><i class="bi bi-file-earmark-pdf"></i></a>
+          <a href="/api/export/ep/${r.ep}.xlsx" style="color:#6870a0;font-size:9px;margin-left:4px;" title="XLSX Export"><i class="bi bi-file-earmark-excel"></i></a></td>
+    </tr>`;
+  }
+  epHtml += '</table>';
+  document.getElementById('ep-table').innerHTML = epHtml;
+
+  // Risk forecast panel
+  renderRiskForecast(riskData);
+
+  // Vendor table
+  const maxEfc = Math.max(...data.top_vendors.map(r => r.total_efc || 0), 1);
+  let vHtml = `<table class="dash-tbl">
+    <tr><th>VENDOR</th><th>SHOTS</th><th>EST</th><th>EFC</th><th>SHARE</th></tr>`;
+  for (const v of data.top_vendors) {
+    const pct = Math.round((v.total_efc / maxEfc) * 100);
+    vHtml += `<tr>
+      <td style="font-weight:600;">${v.vendor}</td>
+      <td style="text-align:right;">${v.shots}</td>
+      <td style="text-align:right;color:#6870a0;">${fmtK(v.total_est)}</td>
+      <td style="text-align:right;color:#f0b429;">${fmtK(v.total_efc)}</td>
+      <td><div class="bar-wrap"><div class="bar-bg" style="width:80px;">
+        <div class="bar-fill" style="width:${pct}%;background:#4a9cf0;"></div>
+      </div><span style="font-size:9px;color:#6870a0;">${pct}%</span></div></td>
+    </tr>`;
+  }
+  if (!data.top_vendors.length) vHtml += '<tr><td colspan="5" style="color:#4a5080;font-size:10px;text-align:center;padding:10px;">No vendor data</td></tr>';
+  vHtml += '</table>';
+  document.getElementById('vendor-table').innerHTML = vHtml;
+
+  // Shot type breakdown
+  const typeMax = Math.max(...data.type_breakdown.map(r => r.cnt || 0), 1);
+  let tHtml = '';
+  for (const t of data.type_breakdown) {
+    const pct = Math.round((t.cnt / typeMax) * 100);
+    tHtml += `<div style="margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">
+        <span style="color:#d0d8f0;">${t.shot_type}</span>
+        <span style="color:#6870a0;">${t.cnt} &nbsp; ${fmtK(t.est)}</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:#4a9cf0;"></div></div>
+    </div>`;
+  }
+  if (!tHtml) tHtml = '<div style="color:#4a5080;font-size:10px;text-align:center;padding:10px;">No data</div>';
+  document.getElementById('type-breakdown').innerHTML = tHtml;
+
+  // Complexity breakdown
+  const cmpMax = Math.max(...data.complexity_breakdown.map(r => r.cnt || 0), 1);
+  let cHtml = '';
+  const cmpColors = { HERO: '#e05252', HIGH: '#f0b429', MID: '#4a9cf0', LOW: '#52c46a' };
+  for (const c of data.complexity_breakdown) {
+    const pct = Math.round((c.cnt / cmpMax) * 100);
+    const col = cmpColors[(c.complexity || '').toUpperCase()] || '#6870a0';
+    cHtml += `<div style="margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">
+        <span style="color:${col};font-weight:600;">${c.complexity || '—'}</span>
+        <span style="color:#6870a0;">${c.cnt}</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${col};"></div></div>
+    </div>`;
+  }
+  if (!cHtml) cHtml = '<div style="color:#4a5080;font-size:10px;text-align:center;padding:10px;">No data</div>';
+  document.getElementById('complexity-breakdown').innerHTML = cHtml;
+
+  // Recent changes
+  let rcHtml = '';
+  for (const c of data.recent_changes) {
+    const ts = c.timestamp ? c.timestamp.substring(0, 16) : '';
+    rcHtml += `<div style="padding:4px 0;border-bottom:1px solid #111425;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+        <span style="font-size:10px;color:#d0d8f0;font-weight:600;">${c.table_name} · ${c.field}</span>
+        <span style="font-size:9px;color:#4a5080;">${ts}</span>
+      </div>
+      <div style="font-size:9px;color:#6870a0;">
+        <span style="color:#c06060;">${(c.old_value||'').substring(0,20)}</span>
+        <i class="bi bi-arrow-right mx-1"></i>
+        <span style="color:#52c46a;">${(c.new_value||'').substring(0,20)}</span>
+      </div>
+    </div>`;
+  }
+  if (!rcHtml) rcHtml = '<div style="color:#4a5080;font-size:10px;text-align:center;padding:10px;">No changes logged</div>';
+  document.getElementById('recent-changes').innerHTML = rcHtml;
+}
+
+loadDashboard();
+loadPredictive();
+loadVendorHealth();
+loadActionItems();
+
+// ── Season risk memo (streaming) ─────────────────────────────────────────────
+function openRiskMemo() {
+  const panel = document.getElementById('risk-panel');
+  const out   = document.getElementById('risk-output');
+  const btn   = document.getElementById('risk-memo-btn');
+  panel.style.display = 'block';
+  out.textContent = '';
+  btn.disabled = true; btn.textContent = '✨ Generating…';
+
+  fetch('/api/llm/season_risk', { method: 'POST' }).then(async resp => {
+    if (!resp.ok || !resp.body) {
+      out.textContent = 'Error starting analysis.';
+      btn.disabled = false; btn.textContent = '✨ Season Risk Memo';
+      return;
+    }
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const body = line.slice(6);
+        if (body === '[DONE]') {
+          btn.disabled = false; btn.textContent = '✨ Season Risk Memo'; return;
+        }
+        try {
+          const d = JSON.parse(body);
+          if (d.t)     out.textContent += d.t;
+          if (d.error) out.textContent += '\n[Error: ' + d.error + ']';
+        } catch(e) {}
+      }
+    }
+    btn.disabled = false; btn.textContent = '✨ Season Risk Memo';
+  }).catch(e => {
+    out.textContent = 'Connection error: ' + e;
+    btn.disabled = false; btn.textContent = '✨ Season Risk Memo';
+  });
+}
+</script>
+{% endblock %}

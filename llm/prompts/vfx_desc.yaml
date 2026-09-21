@@ -1,0 +1,10 @@
+name: vfx_desc
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Scene: SC{scene_code}  Location: {location} ({ext_int})
+  Script description: {script_desc}
+  Asset/Subject: {asset}
+  ---
+  Write a concise VFX description (1-2 sentences) for the VFX supervisor. Focus on what must be created or manipulated digitally. Start directly with the description, no preamble.

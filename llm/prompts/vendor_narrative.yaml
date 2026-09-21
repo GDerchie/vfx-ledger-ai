@@ -1,0 +1,22 @@
+name: vendor_narrative
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Vendor health summary for {project} Season {season}:
+
+  Top vendors by award (EFC):
+  {vendor_list}
+
+  Season totals:
+  - Total shots: {total_shots}
+  - Season EFC: ${season_efc}
+  - Season EST: ${season_est}
+  - Variance: ${variance}
+
+  Capacity & performance flags:
+  {flags_text}
+  ---
+  Write a concise 3–4 sentence executive summary of vendor health for this VFX season.
+  Cover: top vendor concentration risk, any capacity concerns, payment status, and one
+  actionable recommendation for the production supervisor. Plain text, no JSON.

@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Settings — VFX Budget System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4 gap-3">
+  <h5 class="mb-0 fw-bold text-warning"><i class="bi bi-gear me-2"></i>SETTINGS</h5>
+  <span class="text-muted" style="font-size:11px;">LLM / AI provider configuration</span>
+</div>
+
+<div class="row g-4" style="max-width:720px;">
+
+  <!-- Provider card -->
+  <div class="col-12">
+    <div class="vfx-panel">
+      <div class="vfx-panel-header"><span><i class="bi bi-cpu me-2"></i>AI PROVIDER</span></div>
+      <div class="vfx-panel-body">
+
+        <div class="mb-3">
+          <label class="section-label d-block mb-1">Provider</label>
+          <select id="cfg-provider" class="vfx-input" style="width:220px;" onchange="onProviderChange()">
+            <option value="ollama">Ollama (local — free)</option>
+            <option value="claude">Claude API (Anthropic)</option>
+            <option value="openai">OpenAI / Compatible API</option>
+          </select>
+        </div>
+
+        <!-- Ollama fields -->
+        <div id="sec-ollama" class="prov-sec">
+          <div class="row g-3">
+            <div class="col-auto">
+              <label class="section-label d-block mb-1">Ollama URL</label>
+              <input id="cfg-ollama-url" class="vfx-input" style="width:240px;" placeholder="http://localhost:11434">
+            </div>
+            <div class="col-auto">
+              <label class="section-label d-block mb-1">Model</label>
+              <input id="cfg-ollama-model" class="vfx-input" style="width:180px;" placeholder="qwen2.5:7b">
+            </div>
+          </div>
+          <div id="ollama-models" class="mt-2" style="font-size:11px;color:#6870a0;"></div>
+        </div>
+
+        <!-- Claude fields -->
+        <div id="sec-claude" class="prov-sec" style="display:none;">
+          <div class="row g-3">
+            <div class="col-auto">
+              <label class="section-label d-block mb-1">API Key</label>
+              <input id="cfg-claude-key" type="password" class="vfx-input" style="width:340px;" placeholder="sk-ant-…">
+            </div>
+            <div class="col-auto">
+              <label class="section-label d-block mb-1">Model</label>
+              <input id="cfg-claude-model" class="vfx-input" style="width:220px;" placeholder="claude-haiku-4-5-20251001">
+            </div>
+          </div>
+          <div class="mt-1" style="font-size:10px;color:#4a5080;">
+            Recommended: <code style="color:#f0b429;">claude-haiku-4-5-20251001</code> (fast + cheap) &nbsp;|&nbsp;
+            <code style="color:#f0b429;">claude-sonnet-4-6</code> (complex tasks)
+          </div>
+        </div>
+
+        <!-- OpenAI fields -->
+        <div id="sec-openai" class="prov-sec" style="display:none;">
+          <div class="row g-3">
+            <div class="col-auto">
+              <label class="section-label d-block mb-1">API Key</label>
+              <input id="cfg-openai-key" type="password" class="vfx-input" style="width:300px;" placeholder="sk-…">
+            </div>
+            <div class="col-auto">
+              <label class="section-label d-block mb-1">Model</label>
+              <input id="cfg-openai-model" class="vfx-input" style="width:160px;" placeholder="gpt-4o-mini">
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="section-label d-block mb-1">Base URL <span class="text-muted">(change for local/other providers)</span></label>
+            <input id="cfg-openai-url" class="vfx-input" style="width:340px;" placeholder="https://api.openai.com/v1">
+          </div>
+        </div>
+
+        <!-- Shared sliders -->
+        <div class="row g-3 mt-2">
+          <div class="col-auto">
+            <label class="section-label d-block mb-1">
+              Max Tokens &nbsp;<span id="lbl-tokens" style="color:#f0b429;"></span>
+            </label>
+            <input type="range" id="cfg-tokens" min="200" max="2000" step="100"
+                   oninput="document.getElementById('lbl-tokens').textContent=this.value"
+                   style="width:200px;accent-color:#f0b429;">
+          </div>
+          <div class="col-auto">
+            <label class="section-label d-block mb-1">
+              Temperature &nbsp;<span id="lbl-temp" style="color:#f0b429;"></span>
+            </label>
+            <input type="range" id="cfg-temp" min="0" max="1" step="0.05"
+                   oninput="document.getElementById('lbl-temp').textContent=parseFloat(this.value).toFixed(2)"
+                   style="width:160px;accent-color:#f0b429;">
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex align-items-center gap-3 mt-4">
+          <button class="btn-vfx btn-vfx-gold" onclick="saveConfig()">
+            <i class="bi bi-check2-circle me-1"></i>Save Settings
+          </button>
+          <button class="btn-vfx" onclick="testConn()" style="border-color:#4a9cf0;color:#4a9cf0;">
+            <i class="bi bi-plug me-1"></i>Test Connection
+          </button>
+          <span id="cfg-msg" style="font-size:12px;"></span>
+        </div>
+
+        <!-- Status -->
+        <div id="test-result" class="mt-3" style="display:none;font-size:12px;padding:10px 14px;
+             background:#0a0c18;border:1px solid #2e3050;border-radius:4px;"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Opt #17: Slack Alerts card -->
+  <div class="col-12">
+    <div class="vfx-panel">
+      <div class="vfx-panel-header"><span><i class="bi bi-bell me-2"></i>SLACK ALERTS</span></div>
+      <div class="vfx-panel-body">
+        <div style="font-size:11px;color:#7880a0;margin-bottom:12px;">
+          Alerts fire when: EFC &gt; EST×1.2, Invoice approved, Risk badge changes to AT RISK / HIGH RISK.
+        </div>
+        <div class="mb-3">
+          <label class="section-label d-block mb-1">Slack Webhook URL</label>
+          <input id="cfg-slack-url" class="vfx-input" style="width:420px;" placeholder="https://hooks.slack.com/services/…">
+          <span id="slack-status" style="font-size:11px;margin-left:8px;color:#6870a0;"></span>
+        </div>
+        <button class="btn-vfx btn-vfx-blue" onclick="saveSlack()">Save Webhook</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info card -->
+  <div class="col-12">
+    <div class="vfx-panel">
+      <div class="vfx-panel-header"><span><i class="bi bi-info-circle me-2"></i>AI FEATURES</span></div>
+      <div class="vfx-panel-body">
+        <div style="font-size:11px;color:#7880a0;line-height:1.8;">
+          <div class="mb-2" style="color:#d0d8f0;font-weight:600;">Features available once configured:</div>
+          <div><i class="bi bi-lightning-fill me-2" style="color:#f0b429;"></i><strong>EP Page</strong> — ✨ button on each shot row opens AI Assistant: auto-fill VFX Description, classify Shot Type, estimate Cost</div>
+          <div><i class="bi bi-lightning-fill me-2" style="color:#f0b429;"></i><strong>EP Page toolbar</strong> — "✨ Tag All" batch-classifies untagged shots</div>
+          <div><i class="bi bi-lightning-fill me-2" style="color:#f0b429;"></i><strong>Distribution</strong> — per-EP "✨ Summary" generates a producer memo</div>
+          <div><i class="bi bi-lightning-fill me-2" style="color:#f0b429;"></i><strong>Assets</strong> — ✨ button fills Asset Description from name + type</div>
+          <div><i class="bi bi-lightning-fill me-2" style="color:#f0b429;"></i><strong>Notes</strong> — "✨ Summarize" condenses all open notes into action items</div>
+          <div class="mt-3" style="color:#4a5080;">
+            Ollama runs locally (no internet). Claude/OpenAI require an API key and internet connection.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="vfx-toast" id="toast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentConfig = {};
+
+function toast(msg, ok=true) {
+  const t = document.getElementById('toast');
+  t.style.borderColor = ok ? '#52c46a' : '#e05252';
+  t.style.color       = ok ? '#52c46a' : '#e05252';
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2400);
+}
+
+function onProviderChange() {
+  const p = document.getElementById('cfg-provider').value;
+  document.querySelectorAll('.prov-sec').forEach(el => el.style.display = 'none');
+  document.getElementById('sec-' + p).style.display = '';
+}
+
+function loadUI(cfg) {
+  currentConfig = cfg;
+  document.getElementById('cfg-provider').value       = cfg.provider      || 'ollama';
+  document.getElementById('cfg-ollama-url').value     = cfg.ollama_url    || '';
+  document.getElementById('cfg-ollama-model').value   = cfg.ollama_model  || '';
+  document.getElementById('cfg-claude-key').value     = cfg.claude_api_key || '';
+  document.getElementById('cfg-claude-model').value   = cfg.claude_model  || '';
+  document.getElementById('cfg-openai-key').value     = cfg.openai_api_key || '';
+  document.getElementById('cfg-openai-model').value   = cfg.openai_model  || '';
+  document.getElementById('cfg-openai-url').value     = cfg.openai_base_url || '';
+  document.getElementById('cfg-tokens').value         = cfg.max_tokens    || 600;
+  document.getElementById('cfg-temp').value           = cfg.temperature   || 0.3;
+  document.getElementById('lbl-tokens').textContent   = cfg.max_tokens    || 600;
+  document.getElementById('lbl-temp').textContent     = parseFloat(cfg.temperature || 0.3).toFixed(2);
+  onProviderChange();
+}
+
+function collectConfig() {
+  return {
+    provider:        document.getElementById('cfg-provider').value,
+    ollama_url:      document.getElementById('cfg-ollama-url').value.trim(),
+    ollama_model:    document.getElementById('cfg-ollama-model').value.trim(),
+    claude_api_key:  document.getElementById('cfg-claude-key').value.trim(),
+    claude_model:    document.getElementById('cfg-claude-model').value.trim(),
+    openai_api_key:  document.getElementById('cfg-openai-key').value.trim(),
+    openai_model:    document.getElementById('cfg-openai-model').value.trim(),
+    openai_base_url: document.getElementById('cfg-openai-url').value.trim(),
+    max_tokens:      parseInt(document.getElementById('cfg-tokens').value),
+    temperature:     parseFloat(document.getElementById('cfg-temp').value),
+  };
+}
+
+async function saveConfig() {
+  const cfg = collectConfig();
+  const res  = await fetch('/api/llm/config', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body:   JSON.stringify(cfg),
+  });
+  if (res.ok) { currentConfig = cfg; toast('Settings saved'); }
+  else        { toast('Save failed', false); }
+}
+
+async function testConn() {
+  const cfg    = collectConfig();
+  const resEl  = document.getElementById('test-result');
+  const msgEl  = document.getElementById('cfg-msg');
+  msgEl.textContent = 'Testing…'; msgEl.style.color = '#6870a0';
+  resEl.style.display = 'none';
+
+  const res  = await fetch('/api/llm/status', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body:   JSON.stringify(cfg),
+  });
+  const data = await res.json();
+  resEl.style.display = '';
+
+  if (data.ok) {
+    msgEl.textContent = 'Connected ✓'; msgEl.style.color = '#52c46a';
+    if (data.models && data.models.length) {
+      document.getElementById('ollama-models').textContent =
+        'Available models: ' + data.models.join(', ');
+      resEl.innerHTML = `<span style="color:#52c46a;">✓ Ollama OK</span> — ${data.models.length} model(s) found:<br>
+        ${data.models.map(m => `<span style="color:#d0d8f0;background:#1a1d35;padding:1px 6px;border-radius:3px;margin:2px;display:inline-block;">${m}</span>`).join(' ')}`;
+    } else {
+      resEl.innerHTML = `<span style="color:#52c46a;">✓ ${data.provider} — ${data.message || 'OK'}</span>`;
+    }
+  } else {
+    msgEl.textContent = 'Failed ✗'; msgEl.style.color = '#e05252';
+    resEl.innerHTML   = `<span style="color:#e05252;">✗ ${data.error || 'Connection failed'}</span>`;
+  }
+}
+
+async function saveSlack() {
+  const url = document.getElementById('cfg-slack-url').value.trim();
+  const statusEl = document.getElementById('slack-status');
+  statusEl.textContent = 'Saving…'; statusEl.style.color = '#f0b429';
+  const res = await fetch('/api/settings/slack', {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({webhook_url: url})
+  });
+  if (res.ok) { statusEl.textContent = 'Saved ✓'; statusEl.style.color = '#52c46a'; }
+  else        { statusEl.textContent = 'Error ✗'; statusEl.style.color = '#e05252'; }
+}
+
+async function init() {
+  const res = await fetch('/api/llm/config');
+  const cfg = await res.json();
+  loadUI(cfg);
+  // Load Slack config
+  try {
+    const sr = await fetch('/api/settings/slack');
+    const sc = await sr.json();
+    if (sc.configured) {
+      document.getElementById('cfg-slack-url').placeholder = sc.webhook_url + ' (configured)';
+      document.getElementById('slack-status').textContent = 'Configured';
+      document.getElementById('slack-status').style.color = '#52c46a';
+    }
+  } catch(e) {}
+}
+init();
+</script>
+
+<style>
+.section-label { font-size:10px; color:#6870a0; font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+</style>
+{% endblock %}

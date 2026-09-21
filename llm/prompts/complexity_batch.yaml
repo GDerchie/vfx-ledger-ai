@@ -1,0 +1,10 @@
+name: complexity_batch
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Rate the VFX complexity of each shot below. For each line reply: ID|SIMPLE or ID|MEDIUM or ID|HEAVY
+
+  {shots_list}
+  ---
+  Reply with ONLY the ID|COMPLEXITY lines, one per line.

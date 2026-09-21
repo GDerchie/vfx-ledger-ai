@@ -1,0 +1,10 @@
+name: shot_type
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  VFX Description: {vfx_desc}
+  Script description: {script_desc}
+  ---
+  Classify this shot into EXACTLY ONE of: CG, Comp, Roto, Paint, Grade, Crowd, Extension, Creature, FX, Title
+  Reply with ONLY the type name, nothing else.

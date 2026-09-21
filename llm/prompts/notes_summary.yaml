@@ -1,0 +1,10 @@
+name: notes_summary
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Open VFX Production Notes:
+
+  {notes_text}
+  ---
+  Summarise these notes as a concise bulleted action list. Group items under: URGENT / REVIEW / INFO. Use markdown bullets. Be brief.

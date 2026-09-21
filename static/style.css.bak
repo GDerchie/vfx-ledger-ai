@@ -1,0 +1,839 @@
+/* ============================================================
+   VFX Budget System — Unified Design System v2
+   ============================================================ */
+
+:root {
+  /* ── Background scale ── */
+  --bg-deep:    #080c16;
+  --bg-nav:     #0a0b14;
+  --bg-panel:   #0d1120;
+  --bg-card:    #111828;
+  --bg-table:   #111828;
+  --bg-header:  #0c1020;
+  --bg-hover:   #161c30;
+  --bg-input:   #111828;
+
+  /* ── Borders ── */
+  --border:     #1e2440;
+  --border-mid: #2a3060;
+  --border-hi:  #3a4070;
+
+  /* ── Accent palette ── */
+  --accent:     #f0b429;   /* amber  — brand / distribution / notes / scenario */
+  --accent2:    #4e9af1;   /* blue   — EP pages / imports / data links          */
+  --green:      #52c46a;   /* green  — assets / excel export / savings          */
+  --red:        #e05252;   /* red    — over-budget / destructive / omit         */
+  --orange:     #e08232;   /* orange — dashboard / AT RISK                      */
+  --teal:       #26c6da;   /* teal   — audit log / new values                   */
+
+  /* ── Semantic dims (bg tints) ── */
+  --accent-dim:  rgba(240,180,41,.12);
+  --accent2-dim: rgba(78,154,241,.12);
+  --green-dim:   rgba(82,196,106,.10);
+  --red-dim:     rgba(224,82,82,.10);
+  --orange-dim:  rgba(224,130,50,.10);
+  --teal-dim:    rgba(38,198,218,.10);
+
+  /* ── Text ── */
+  --text:       #dce1f0;
+  --text-hi:    #e8f0ff;
+  --text-mid:   #a0b0d0;
+  --text-muted: #6070a0;
+  --text-dim:   #3a4060;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+a { color: var(--accent2); text-decoration: none; }
+a:hover { color: var(--text-hi); }
+
+/* ============================================================
+   NAVBAR — unified active state
+   ============================================================ */
+.vfx-nav {
+  background: var(--bg-nav) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 48px;
+}
+
+/* Brand */
+.vfx-nav .navbar-brand {
+  letter-spacing: .8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent) !important;
+  padding: 0;
+  margin-right: 20px;
+  display: flex;
+  align-items: center;
+  height: 48px;
+}
+.vfx-nav .navbar-brand small {
+  color: var(--text-muted) !important;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .3px;
+}
+
+/* Nav links — base */
+.vfx-nav .nav-link {
+  color: var(--text-muted) !important;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  padding: 0 10px !important;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -1px; /* sit on top of nav border */
+}
+.vfx-nav .nav-link:hover {
+  color: var(--text) !important;
+  border-bottom-color: var(--border-mid);
+}
+
+/* Active state — amber (default / most pages) */
+.vfx-nav .nav-link.active {
+  color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+  background: transparent !important;
+}
+/* Active state overrides per page accent */
+.vfx-nav .nav-link.active-blue  { color: var(--accent2) !important; border-bottom-color: var(--accent2) !important; }
+.vfx-nav .nav-link.active-green { color: var(--green) !important;   border-bottom-color: var(--green) !important; }
+.vfx-nav .nav-link.active-teal  { color: var(--teal) !important;    border-bottom-color: var(--teal) !important; }
+.vfx-nav .nav-link.active-orange{ color: var(--orange) !important;  border-bottom-color: var(--orange) !important; }
+
+/* Dropdown */
+.vfx-nav .dropdown-menu {
+  background: var(--bg-card);
+  border: 1px solid var(--border-mid);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 140px;
+}
+.vfx-nav .dropdown-item {
+  color: var(--text-mid);
+  font-size: 12px;
+  padding: 5px 14px;
+}
+.vfx-nav .dropdown-item:hover,
+.vfx-nav .dropdown-item.active { background: var(--bg-hover); color: var(--accent); }
+
+/* Nav divider pill (optional) */
+.nav-ep-badge {
+  background: var(--accent2-dim);
+  color: var(--accent2);
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  margin-left: 4px;
+}
+
+/* Search + date in nav right */
+#nav-date { font-size: 10px; color: var(--text-dim); }
+.nav-search-trigger {
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.nav-search-trigger:hover { border-color: var(--accent2); color: var(--accent2); }
+
+/* ============================================================
+   PAGE HEADER — unified with top accent bar
+   ============================================================ */
+.page-header {
+  padding: 0 0 14px 0;
+  position: relative;
+}
+/* 3px top accent bar injected via border-top on the page wrapper */
+.page-accent-amber  { border-top: 3px solid var(--accent); }
+.page-accent-blue   { border-top: 3px solid var(--accent2); }
+.page-accent-green  { border-top: 3px solid var(--green); }
+.page-accent-orange { border-top: 3px solid var(--orange); }
+.page-accent-teal   { border-top: 3px solid var(--teal); }
+
+.page-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-hi);
+  letter-spacing: .2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.2;
+  margin: 0 0 3px 0;
+}
+.page-subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.save-indicator {
+  font-size: 10px;
+  color: #2a7040;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.save-indicator::before { content: '●'; font-size: 7px; }
+
+/* ============================================================
+   STAT CARDS (KPI) — left accent bar variant
+   ============================================================ */
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.stat-card:hover { border-color: var(--border-mid); }
+
+/* Left accent bar */
+.stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+  background: var(--text-dim);
+}
+.stat-card.sc-amber::before  { background: var(--accent); }
+.stat-card.sc-blue::before   { background: var(--accent2); }
+.stat-card.sc-green::before  { background: var(--green); }
+.stat-card.sc-red::before    { background: var(--red); }
+.stat-card.sc-orange::before { background: var(--orange); }
+
+.stat-card .label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 5px;
+}
+.stat-card .value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-hi);
+  line-height: 1;
+  letter-spacing: -.3px;
+}
+.stat-card .value.pos { color: var(--red); }     /* positive variance = over budget = red */
+.stat-card .value.neg { color: var(--green); }   /* negative variance = under budget = green */
+.stat-card .value.warn { color: var(--accent); }
+.stat-card .sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ============================================================
+   PANELS / SECTION HEADERS — unified
+   ============================================================ */
+.vfx-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.vfx-panel-header {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* Per-page accent on section headers */
+.vfx-panel-header.ph-blue   { color: var(--accent2); }
+.vfx-panel-header.ph-green  { color: var(--green); }
+.vfx-panel-header.ph-orange { color: var(--orange); }
+.vfx-panel-header.ph-teal   { color: var(--teal); }
+.vfx-panel-header.ph-red    { color: var(--red); }
+
+.vfx-panel-header .ph-hint {
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: auto;
+}
+.vfx-panel-body { padding: 10px; }
+
+/* ============================================================
+   BUTTONS — 4-tier unified hierarchy
+   ============================================================ */
+.btn-vfx {
+  background: transparent;
+  border: 1px solid var(--border-mid);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 11px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: .3px;
+  transition: border-color .15s, color .15s, background .15s;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Tier 1 — Ghost: reversible, tertiary actions */
+.btn-vfx:hover,
+.btn-vfx-ghost:hover {
+  border-color: var(--accent2);
+  color: var(--accent2);
+  background: transparent;
+}
+.btn-vfx-ghost {
+  background: transparent;
+  border-color: var(--border-mid);
+  color: var(--text-muted);
+}
+
+/* Tier 2 — Blue: import, add-row, data actions */
+.btn-vfx-blue {
+  background: var(--accent2-dim);
+  border-color: rgba(78,154,241,.4);
+  color: var(--accent2);
+}
+.btn-vfx-blue:hover { background: rgba(78,154,241,.22); border-color: var(--accent2); color: var(--accent2); }
+
+/* Tier 3a — Green: Excel export (highest value output) */
+.btn-vfx-green {
+  background: var(--green-dim);
+  border-color: rgba(82,196,106,.4);
+  color: var(--green);
+}
+.btn-vfx-green:hover { background: rgba(82,196,106,.22); border-color: var(--green); color: var(--green); }
+
+/* Tier 3b — Amber: AI features, sync, primary brand actions */
+.btn-vfx-gold {
+  background: var(--accent-dim);
+  border-color: rgba(240,180,41,.4);
+  color: var(--accent);
+}
+.btn-vfx-gold:hover { background: rgba(240,180,41,.22); border-color: var(--accent); color: var(--accent); }
+
+/* Tier 4 — Red: destructive, always secondary placement */
+.btn-vfx-danger {
+  background: var(--red-dim);
+  border-color: rgba(224,82,82,.4);
+  color: var(--red);
+}
+.btn-vfx-danger:hover { background: rgba(224,82,82,.22); border-color: var(--red); color: var(--red); }
+
+/* ============================================================
+   DISTRIBUTION TABLE — risk row tinting
+   ============================================================ */
+.dist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+.dist-table th {
+  background: var(--bg-header);
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.dist-table th:last-child { border-right: none; }
+
+.dist-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #0f1428;
+  border-right: 1px solid #0f1428;
+  color: var(--text-mid);
+  vertical-align: middle;
+  transition: background .1s;
+}
+.dist-table td:last-child { border-right: none; }
+
+/* Risk-tinted rows — left border + faint bg */
+.dist-table tr.risk-atrisk {
+  border-left: 3px solid var(--orange);
+  background: rgba(224,130,50,.025);
+}
+.dist-table tr.risk-watch {
+  border-left: 3px solid var(--accent);
+  background: rgba(240,180,41,.018);
+}
+.dist-table tr.risk-ok {
+  border-left: 3px solid var(--green);
+  background: rgba(82,196,106,.015);
+}
+
+.dist-table tr:hover td { background: rgba(255,255,255,.02); }
+.dist-table tr.risk-atrisk:hover td { background: rgba(224,130,50,.04); }
+.dist-table tr.risk-watch:hover  td { background: rgba(240,180,41,.03); }
+.dist-table tr.risk-ok:hover     td { background: rgba(82,196,106,.025); }
+
+.dist-table .ep-num {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+}
+.dist-table .money { color: var(--text); font-weight: 500; }
+.dist-table [contenteditable="true"]:focus {
+  outline: 1px solid var(--accent2);
+  background: #1e2040;
+  border-radius: 2px;
+}
+/* Totals row */
+.dist-table .totals-row td {
+  background: var(--bg-card) !important;
+  color: var(--accent2) !important;
+  font-weight: 700;
+  border-top: 2px solid var(--border-mid) !important;
+}
+
+/* ============================================================
+   TABULATOR OVERRIDES
+   ============================================================ */
+.tabulator {
+  background: var(--bg-table) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 0 6px 6px;
+  font-size: 12px;
+}
+
+.tabulator .tabulator-header { background: var(--bg-header) !important; border-bottom: 1px solid var(--border) !important; }
+.tabulator .tabulator-header .tabulator-col {
+  background: var(--bg-header) !important;
+  border-right: 1px solid var(--border) !important;
+  color: var(--text-dim) !important;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  height: 34px;
+}
+.tabulator .tabulator-header .tabulator-col-title { white-space: normal; line-height: 1.2; }
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable:hover { background: var(--bg-hover) !important; }
+.tabulator .tabulator-header .tabulator-col.tabulator-col-sorter-element:hover { color: var(--accent) !important; }
+
+/* Rows */
+.tabulator-row { border-bottom: 1px solid #0f1428 !important; min-height: 30px; }
+.tabulator-row.tabulator-row-even { background: #101520 !important; }
+.tabulator-row.tabulator-row-odd  { background: var(--bg-table) !important; }
+.tabulator-row:hover { background: var(--bg-hover) !important; }
+.tabulator-row.tabulator-selected { background: rgba(78,154,241,.1) !important; }
+.tabulator-row.row-auto-sync      { background: #141824 !important; }
+.tabulator-row.row-auto-sync .tabulator-cell { color: var(--text-muted) !important; }
+
+/* Episode group header rows */
+.tabulator-group.tabulator-group-level-0 {
+  background: #111525 !important;
+  border-top: 2px solid var(--border-mid) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 0 !important;
+  margin-top: 2px;
+}
+.tabulator-group.tabulator-group-level-0:first-child {
+  border-top: 1px solid var(--border) !important;
+  margin-top: 0;
+}
+
+/* Cells */
+.tabulator-cell {
+  border-right: 1px solid #0f1428 !important;
+  color: var(--text-mid) !important;
+  padding: 5px 8px !important;
+}
+.tabulator-cell.tabulator-editing {
+  background: #1e2240 !important;
+  outline: 1px solid var(--accent2) !important;
+}
+
+/* Omit rows */
+.tabulator-row.row-omit { opacity: 0.4; }
+
+/* ============================================================
+   VARIANCE / CELL COLOURS (shared)
+   ============================================================ */
+.cell-neg  { color: var(--red) !important;        font-weight: 600; }  /* over budget */
+.cell-pos  { color: var(--green) !important;      font-weight: 600; }  /* under budget */
+.cell-zero { color: var(--text-muted) !important; }
+
+/* ============================================================
+   RISK BADGES
+   ============================================================ */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.risk-safe    { background: rgba(82,196,106,.12);  color: var(--green);  border: 1px solid rgba(82,196,106,.28); }
+.risk-watch   { background: rgba(240,180,41,.14);  color: var(--accent); border: 1px solid rgba(240,180,41,.3);  }
+.risk-atrisk  { background: rgba(224,130,50,.14);  color: var(--orange); border: 1px solid rgba(224,130,50,.3);  }
+.risk-highrisk{ background: rgba(224,82,82,.16);   color: var(--red);    border: 1px solid rgba(224,82,82,.35);  }
+
+/* ============================================================
+   STATUS BADGES (select options)
+   ============================================================ */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  white-space: nowrap;
+}
+.badge-rebid  { background: rgba(240,180,41,.12);  color: var(--accent); border: 1px solid rgba(240,180,41,.25); }
+.badge-edit   { background: rgba(78,154,241,.12);  color: var(--accent2); border: 1px solid rgba(78,154,241,.25); }
+.badge-clear  { background: rgba(82,196,106,.10);  color: var(--green);  border: 1px solid rgba(82,196,106,.22); }
+.badge-locked { background: rgba(78,154,241,.08);  color: var(--accent2); border: 1px solid rgba(78,154,241,.18); }
+.badge-over   { background: rgba(224,82,82,.10);   color: var(--red);    border: 1px solid rgba(224,82,82,.2);  }
+
+/* Asset type tags */
+.asset-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  color: var(--accent2);
+  background: var(--accent2-dim);
+  border: 1px solid rgba(78,154,241,.3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* ============================================================
+   FORM CONTROLS
+   ============================================================ */
+input.vfx-input,
+select.vfx-input,
+textarea.vfx-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-mid);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 5px 9px;
+  font-size: 12px;
+  transition: border-color .15s, background .15s;
+}
+input.vfx-input:focus,
+select.vfx-input:focus,
+textarea.vfx-input:focus {
+  outline: none;
+  border-color: var(--accent2);
+  background: #1a2040;
+}
+input.vfx-input::placeholder { color: var(--text-dim); }
+
+/* Editable cells */
+[contenteditable="true"] { cursor: text; }
+[contenteditable="true"]:hover { background: rgba(255,255,255,.04); border-radius: 2px; }
+
+/* ============================================================
+   VERSION TAG
+   ============================================================ */
+.version-tag {
+  font-size: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: var(--text-dim);
+}
+
+/* ============================================================
+   HISTORY / AUDIT TABLES
+   ============================================================ */
+.hist-table { width: 100%; font-size: 11px; border-collapse: collapse; }
+.hist-table th {
+  background: var(--bg-header);
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.hist-table td { padding: 6px 8px; border-bottom: 1px solid #0f1428; color: var(--text-mid); }
+.hist-table tr:hover td { background: var(--bg-hover); }
+
+/* Audit: old = red, new = teal */
+.audit-old { color: var(--red);  font-weight: 600; }
+.audit-new { color: var(--teal); font-weight: 600; }
+
+/* ============================================================
+   SECTION LABEL (misc utility)
+   ============================================================ */
+.section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.vfx-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #0e2018;
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 8px 16px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 9999;
+  display: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+
+/* ============================================================
+   KEYBOARD SHORTCUT FOOTER (optional)
+   ============================================================ */
+.vfx-shortcut-footer {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 0 0;
+  font-size: 10px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+.vfx-shortcut-footer kbd {
+  background: var(--bg-card);
+  border: 1px solid var(--border-mid);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: inherit;
+}
+
+/* ============================================================
+   RISK LEGEND
+   ============================================================ */
+.risk-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.risk-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.risk-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   DASHBOARD CHART AREA
+   ============================================================ */
+.chart-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.chart-panel .chart-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 10px;
+}
+
+/* ============================================================
+   ASSETS PAGE — EP summary cards
+   ============================================================ */
+.ep-asset-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  transition: border-color .2s;
+}
+.ep-asset-card:hover { border-color: var(--green); }
+.ep-asset-card .ep-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+.ep-asset-card .ep-count {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--green);
+  line-height: 1;
+}
+.ep-asset-card .ep-count span { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+.ep-asset-card .ep-budget { font-size: 11px; color: var(--text-mid); margin-top: 4px; }
+.ep-asset-card .ep-var    { font-size: 10px; color: var(--red); font-weight: 600; }
+.ep-asset-card .ep-var.under { color: var(--green); }
+
+/* Orphan alert banner */
+.orphan-alert {
+  background: rgba(224,82,82,.07);
+  border: 1px solid rgba(224,82,82,.25);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-mid);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.orphan-alert strong { color: var(--red); }
+
+/* ============================================================
+   SCENARIO PAGE
+   ============================================================ */
+.scenario-row-ok      { color: var(--green); font-weight: 600; }
+.scenario-row-over    { color: var(--red);   font-weight: 600; }
+.scenario-row-neutral { color: var(--text-muted); }
+
+/* ============================================================
+   NOTES PAGE
+   ============================================================ */
+.note-resolved td { opacity: .5; }
+.note-resolved td:first-child { text-decoration: line-through; }
+
+/* ============================================================
+   EPISODE GROUP HEADERS (Tabulator breakdown)
+   ============================================================ */
+.ep-group-hdr {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 9px 14px;
+  flex-wrap: wrap;
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+}
+.ep-group-hdr:hover { background: rgba(240,180,41,.03); }
+
+.ep-hdr-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  background: rgba(240,180,41,.14);
+  color: var(--accent);
+  border: 1px solid rgba(240,180,41,.3);
+  border-radius: 4px;
+  padding: 2px 9px;
+  white-space: nowrap;
+  margin-right: 10px;
+}
+.ep-hdr-divider { color: var(--border-mid); font-size: 14px; margin: 0 6px; }
+.ep-hdr-stat    { font-size: 11px; color: var(--text-muted); padding: 0 5px; white-space: nowrap; }
+.ep-hdr-stat b  { color: var(--text); }
+.ep-hdr-key     { font-size: 9px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--text-dim); margin-right: 3px; }
+.ep-hdr-status  { font-size: 9px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; margin-left: 5px; }
+.ep-hdr-sync    { font-size: 9px; color: var(--accent2); border: 1px solid rgba(78,154,241,.3); border-radius: 3px; padding: 1px 6px; margin-left: 4px; display: inline-flex; align-items: center; gap: 3px; }
+.ep-var-pos b   { color: var(--red) !important; }
+.ep-var-neg b   { color: var(--green) !important; }
+.ep-var-zero b  { color: var(--text-muted) !important; }
+
+/* Tabulator group toggle arrow */
+.tabulator-group-toggle .tabulator-arrow { border-top-color: var(--border-hi) !important; }
+.tabulator-group.tabulator-group-collapsed .tabulator-arrow {
+  border-top-color: transparent !important;
+  border-bottom-color: var(--border-hi) !important;
+}
+
+/* ============================================================
+   AI BUTTON
+   ============================================================ */
+.ai-btn {
+  background: transparent;
+  border: 1px dashed var(--border-mid);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.ai-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hi); }

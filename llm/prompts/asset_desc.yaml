@@ -1,0 +1,10 @@
+name: asset_desc
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  Asset Name: {asset_name}
+  Asset Type: {asset_type}
+  Scene: SC {scene_code}  Episode: {ep}
+  ---
+  Write a concise one-sentence description of this VFX asset for a production asset list. Start directly with the description.

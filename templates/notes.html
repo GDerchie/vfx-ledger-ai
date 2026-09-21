@@ -4,9 +4,41 @@
 {% block content %}
 <div class="d-flex align-items-center mb-3 gap-3">
   <h5 class="mb-0 text-warning fw-bold"><i class="bi bi-journal-text me-2"></i>VFX NOTES</h5>
+  <button class="ai-btn ms-2" onclick="openSummarizeModal()"
+          style="font-size:12px;padding:3px 12px;" title="AI summarize all open notes">
+    ✨ Summarize
+  </button>
   <button class="btn-vfx btn-vfx-blue ms-auto" onclick="addNote()">
     <i class="bi bi-plus me-1"></i>Add Note
   </button>
+</div>
+
+<!-- AI Summarize Modal -->
+<div class="modal fade" id="summarizeModal" tabindex="-1">
+  <div class="modal-dialog modal-lg" style="margin-top:80px;">
+    <div class="modal-content" style="background:#0d0e18;border:1px solid #2e3050;">
+      <div class="modal-header" style="background:#12152a;border-bottom:1px solid #2e3050;padding:10px 16px;">
+        <div>
+          <span style="font-size:13px;font-weight:700;color:#f0b429;">✨ AI — Summarize Open Notes</span>
+          <div style="font-size:10px;color:#4a5080;margin-top:2px;">Condenses open notes into a prioritised action list</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px;">
+        <div id="sum-note-count" style="font-size:11px;color:#6870a0;margin-bottom:12px;"></div>
+        <button class="ai-btn" id="sum-gen-btn" onclick="summarizeGenerate()"
+                style="font-size:12px;padding:4px 14px;">✨ Generate Summary</button>
+        <div class="ai-preview" id="sum-preview"
+             style="margin-top:10px;max-height:340px;white-space:pre-wrap;font-size:12px;line-height:1.7;"></div>
+        <div class="ai-actions" id="sum-actions" style="margin-top:10px;">
+          <button class="ai-accept" onclick="summarizeCopy()">
+            <i class="bi bi-clipboard me-1"></i>Copy
+          </button>
+          <button class="ai-discard" onclick="summarizeDiscard()">Discard</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="vfx-panel">
@@ -35,6 +67,7 @@ function toast(msg){
 function buildTable(data){
   if(notesTable){ notesTable.destroy(); notesTable=null; }
   notesTable = new Tabulator('#notes-table',{
+    ...TABULATOR_PERF,
     data, layout:'fitDataFill', height:'500px',
     rowFormatter: row => {
       if(row.getData().resolved)
@@ -89,6 +122,86 @@ async function del(row){
   await fetch(`/api/notes/${row.getData().id}`,{method:'DELETE'});
   row.delete();
   toast('Deleted');
+}
+
+// ── AI Summarize ──────────────────────────────────────────────────────────────
+let _sumModal = null;
+
+function openSummarizeModal() {
+  if (!_sumModal)
+    _sumModal = new bootstrap.Modal(document.getElementById('summarizeModal'));
+
+  const allNotes  = notesTable ? notesTable.getData() : [];
+  const openNotes = allNotes.filter(n => !n.resolved && (n.note_text||'').trim());
+  document.getElementById('sum-note-count').textContent =
+    `${openNotes.length} open note${openNotes.length !== 1 ? 's' : ''} (resolved notes excluded)`;
+
+  // reset UI
+  const prev = document.getElementById('sum-preview');
+  const acts = document.getElementById('sum-actions');
+  const btn  = document.getElementById('sum-gen-btn');
+  prev.style.display = 'none'; prev.textContent = '';
+  acts.style.display = 'none';
+  btn.disabled = false; btn.innerHTML = '✨ Generate Summary';
+
+  _sumModal.show();
+}
+
+async function summarizeGenerate() {
+  const btn     = document.getElementById('sum-gen-btn');
+  const prev    = document.getElementById('sum-preview');
+  const acts    = document.getElementById('sum-actions');
+  btn.disabled  = true; btn.innerHTML = '✨ Analysing…';
+  prev.style.display = 'none'; prev.textContent = '';
+  acts.style.display = 'none';
+
+  try {
+    const res  = await fetch('/api/llm/notes_summarize', { method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: '{}' });
+    const data = await res.json();
+    if (data.error) { prev.textContent = `Error: ${data.error}`; prev.style.display = 'block'; return; }
+
+    let html = '';
+    if (data.summary) {
+      html += `<div style="margin-bottom:10px;font-size:12px;color:#d0d8f0;line-height:1.6;">
+        ${data.summary}</div>`;
+    }
+    if (data.priorities && data.priorities.length) {
+      html += `<div style="font-size:10px;font-weight:700;color:#f0b429;letter-spacing:.5px;
+               margin-bottom:6px;">TOP ACTION PRIORITIES</div>`;
+      html += data.priorities.map(p =>
+        `<div style="display:flex;gap:8px;margin-bottom:4px;">
+           <span style="color:#e05252;font-weight:700;margin-top:1px;">▸</span>
+           <span style="font-size:11px;color:#d0d8f0;">${p}</span>
+         </div>`
+      ).join('');
+    }
+    if (data.unresolved_count !== undefined) {
+      html += `<div style="font-size:9px;color:#4a5080;margin-top:8px;">
+        ${data.unresolved_count} unresolved notes</div>`;
+    }
+    prev.innerHTML = html;
+    prev.style.display = 'block';
+    acts.style.display = 'flex';
+  } catch(e) {
+    prev.textContent = `Error: ${e}`; prev.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '✨ Generate Summary';
+  }
+}
+
+function summarizeCopy() {
+  const text = document.getElementById('sum-preview').textContent.trim();
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard'));
+}
+
+function summarizeDiscard() {
+  const prev = document.getElementById('sum-preview');
+  const acts = document.getElementById('sum-actions');
+  const btn  = document.getElementById('sum-gen-btn');
+  prev.style.display = 'none'; prev.textContent = '';
+  acts.style.display = 'none';
+  btn.disabled = false; btn.innerHTML = '✨ Generate Summary';
 }
 
 async function init(){

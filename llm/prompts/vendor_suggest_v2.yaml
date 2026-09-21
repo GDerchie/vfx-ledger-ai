@@ -1,0 +1,27 @@
+name: vendor_suggest_v2
+version: 2
+output_schema:
+  type: object
+  properties:
+    vendor:
+      type: string
+    reason:
+      type: string
+    capacity_flag:
+      type: boolean
+retry_on_parse_fail: true
+template: |
+  Shot details:
+    SC {scene_code}  EP{ep}  Type: {shot_type}  Complexity: {complexity}
+    VFX Description: {vfx_desc}
+    Est Cost: ${cost_est}
+
+  Available vendors (capacity utilization, performance score, tax rate):
+  {vendor_list}
+  ---
+  Recommend the single best vendor for this shot.
+  Rules: (1) Do NOT recommend vendors at or above 100% capacity unless no alternative exists.
+  (2) Prefer vendors with higher performance scores for complex shots.
+  (3) Factor in tax rate when costs are close between vendors.
+  Set capacity_flag=true if your recommended vendor is above 80% utilization.
+  Reply with ONLY valid JSON: {"vendor": "VendorName", "reason": "one sentence", "capacity_flag": false}

@@ -1,0 +1,744 @@
+{% extends "base.html" %}
+{% block title %}Invoice Log — VFX Budget System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3 flex-wrap">
+  <h5 class="mb-0 fw-bold text-warning" id="inv-panel-header">
+    <i class="bi bi-journal-check me-2"></i>INVOICE LOG
+  </h5>
+  <span class="text-muted" style="font-size:11px;">Vendor registry · Invoice tracking · Paid vs Award reconciliation</span>
+</div>
+
+<!-- ── SECTION A: Vendor Registry ──────────────────────────────────────────── -->
+<div class="vfx-panel mb-3">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-person-lines-fill me-2"></i>VENDOR REGISTRY</span>
+    <div class="d-flex gap-2">
+      <button class="btn-vfx" onclick="syncVendorsFromTracker()"
+              style="border-color:#4a9cf0;color:#4a9cf0;" title="Pull vendors from Tracker / Assets / Bid Compare">
+        <i class="bi bi-arrow-repeat me-1"></i>Sync from System
+      </button>
+      <button class="btn-vfx btn-vfx-gold" onclick="addVendorReg()">
+        <i class="bi bi-plus me-1"></i>Add Vendor
+      </button>
+    </div>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div id="reg-table" style="min-height:120px;"></div>
+  </div>
+</div>
+
+<!-- ── SECTION B: Invoice Log ─────────────────────────────────────────────── -->
+<div class="vfx-panel mb-3">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-receipt me-2"></i>INVOICE LOG</span>
+    <div class="d-flex gap-2 align-items-center">
+      <select id="inv-vendor-filter" class="vfx-input" style="width:130px;" onchange="applyInvFilter()">
+        <option value="">All Vendors</option>
+      </select>
+      <select id="inv-ep-filter" class="vfx-input" style="width:95px;" onchange="applyInvFilter()">
+        <option value="">All EPs</option>
+        {% for ep in range(session.get('ep_start',101), session.get('ep_end',108)+1) %}
+        <option value="{{ ep }}">EP {{ ep }}</option>
+        {% endfor %}
+      </select>
+      <select id="inv-status-filter" class="vfx-input" style="width:110px;" onchange="applyInvFilter()">
+        <option value="">All Status</option>
+        <option>Pending</option><option>Approved</option><option>Paid</option>
+      </select>
+      <button class="btn-vfx btn-vfx-gold" onclick="addInvoice()">
+        <i class="bi bi-plus me-1"></i>Add Invoice
+      </button>
+    </div>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div id="inv-table" style="min-height:200px;"></div>
+  </div>
+</div>
+
+<!-- ── SECTION C: Vendor Summary ─────────────────────────────────────────── -->
+<div class="vfx-panel mb-3">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-bar-chart-line me-2"></i>VENDOR SUMMARY — Award vs Paid vs Pending</span>
+    <span class="text-muted" style="font-size:10px;">Live from invoice log</span>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div style="overflow-x:auto;">
+      <table class="dist-table" id="summary-table">
+        <thead>
+          <tr>
+            <th>VENDOR</th>
+            <th>REGION</th>
+            <th>INVOICED (total)</th>
+            <th>PAID</th>
+            <th>PENDING / APPROVED</th>
+            <th>NET (after rebate)</th>
+            <th>REBATE %</th>
+            <th>CONFIDENCE</th>
+          </tr>
+        </thead>
+        <tbody id="summary-body">
+          <tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── SECTION E: Vendor Performance Score ───────────────────────────────── -->
+<div class="vfx-panel mb-3">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-trophy me-2"></i>VENDOR PERFORMANCE SCORE</span>
+    <span class="text-muted" style="font-size:10px;">Bid consistency · Invoice accuracy · Edit efficiency</span>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div style="overflow-x:auto;">
+      <table class="dist-table" id="perf-table">
+        <thead>
+          <tr>
+            <th>VENDOR</th>
+            <th>COMPOSITE</th>
+            <th>BID CONFIDENCE</th>
+            <th>INVOICE ACCURACY</th>
+            <th>EDIT EFFICIENCY</th>
+            <th>SAMPLES</th>
+          </tr>
+        </thead>
+        <tbody id="perf-body">
+          <tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── SECTION D: Capacity Tracker ──────────────────────────────────────── -->
+<div class="vfx-panel mb-3">
+  <div class="vfx-panel-header">
+    <span><i class="bi bi-speedometer2 me-2"></i>CAPACITY TRACKER</span>
+    <button class="btn-vfx btn-vfx-gold" onclick="addCapacity()">
+      <i class="bi bi-plus me-1"></i>Add Vendor
+    </button>
+  </div>
+  <div class="vfx-panel-body p-0">
+    <div id="cap-table" style="min-height:100px;"></div>
+  </div>
+  <div class="vfx-panel-body" style="font-size:11px;color:#4a5080;border-top:1px solid #1e2240;">
+    Shots awarded per vendor are pulled from the Vendor Tracker · utilisation = awarded ÷ (shots/month × efficiency)
+  </div>
+</div>
+
+<div class="vfx-toast" id="toast"></div>
+
+<!-- ── Tag Shots Modal ────────────────────────────────────────────────────── -->
+<div id="tag-shots-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
+  <div style="background:#12152a;border:1px solid #2e3050;border-radius:8px;width:660px;max-width:96vw;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="d-flex align-items-center px-3 py-2" style="border-bottom:1px solid #2e3050;">
+      <span style="font-size:11px;font-weight:700;letter-spacing:.8px;color:#f0b429;">
+        <i class="bi bi-link-45deg me-2"></i>TAG SHOTS TO INVOICE
+      </span>
+      <span id="tag-inv-label" class="ms-2 text-muted" style="font-size:11px;"></span>
+      <button class="ms-auto btn-vfx" style="border-color:#e05252;color:#e05252;padding:2px 10px;"
+              onclick="closeTagModal()">✕</button>
+    </div>
+    <div class="px-3 py-2 d-flex gap-2 align-items-center" style="border-bottom:1px solid #1e2240;">
+      <input id="tag-search" class="vfx-input" style="flex:1;font-size:11px;" placeholder="Filter by scene / shot / type…"
+             oninput="filterTagShots()">
+      <span id="tag-count" style="font-size:11px;color:#6870a0;white-space:nowrap;"></span>
+    </div>
+    <div id="tag-shots-list" style="overflow-y:auto;flex:1;"></div>
+    <div class="d-flex gap-2 px-3 py-2 justify-content-end" style="border-top:1px solid #1e2240;">
+      <button class="btn-vfx" onclick="closeTagModal()">Cancel</button>
+      <button class="btn-vfx btn-vfx-gold" onclick="saveTagShots()">
+        <i class="bi bi-check2 me-1"></i>Save Links
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const REGIONS = ['BC','QC','ON','UK','FR','US','Offshore','Other'];
+const STATUSES = ['Pending','Approved','Paid'];
+const EPS = Array.from(
+  {length: {{ session.get('ep_end',108) - session.get('ep_start',101) + 1 }}},
+  (_, i) => {{ session.get('ep_start',101) }} + i
+);
+
+let regTable   = null;
+let invTable   = null;
+let capTable   = null;
+let allReg     = [];   // vendor_registry rows
+let allInv     = [];   // invoice_log rows
+let allCap     = [];   // vendor_capacity rows
+
+// ── Save guard + indicator (Opt #8 / #11) ────────────────────────────────────
+let _invGuard     = null;
+let _invIndicator = null;
+let confidence = {};   // vendor → {samples, mean, cv, confidence, label}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmt$(v) {
+  const n = parseFloat(v);
+  return isNaN(n) || n === 0 ? '—' : '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+function pct(v) { return isNaN(parseFloat(v)) ? '—' : parseFloat(v).toFixed(1) + '%'; }
+function toast(msg, ok=true) {
+  const t = document.getElementById('toast');
+  t.style.borderColor = ok ? '#52c46a' : '#e05252';
+  t.style.color       = ok ? '#52c46a' : '#e05252';
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2000);
+}
+
+// ── Vendor Registry ───────────────────────────────────────────────────────────
+function buildRegTable(data) {
+  allReg = data;
+  if (regTable) { regTable.destroy(); regTable = null; }
+  regTable = new Tabulator('#reg-table', {
+    ...TABULATOR_PERF,
+    data, layout: 'fitData', height: 'auto', maxHeight: '260px',
+    columnDefaults: { resizable: true, headerSort: true },
+    columns: [
+      { title:'VENDOR', field:'vendor', width:140, editor:'input', cellEdited: saveReg },
+      { title:'REGION', field:'region', width:90, editor:'list',
+        editorParams:{values: REGIONS}, cellEdited: saveReg },
+      { title:'FX RATE', field:'fx_rate', width:90, hozAlign:'right',
+        formatter: c => c.getValue() ? Number(c.getValue()).toFixed(4) : '1.0000',
+        editor:'number', editorParams:{min:0,step:0.0001,precision:4}, cellEdited: saveReg },
+      { title:'TAX %', field:'tax_pct', width:80, hozAlign:'right',
+        formatter: c => pct((c.getValue()||0)*100),
+        editor:'number', editorParams:{min:0,max:100,step:0.1}, cellEdited: saveReg },
+      { title:'REBATE %', field:'rebate_pct', width:90, hozAlign:'right',
+        formatter: c => pct((c.getValue()||0)*100),
+        editor:'number', editorParams:{min:0,max:100,step:0.1}, cellEdited: saveReg },
+      { title:'CONTACT', field:'contact', width:180, editor:'input', cellEdited: saveReg,
+        formatter: c => `<span style="color:#7880a0;">${c.getValue()||''}</span>` },
+      { title:'', width:38, hozAlign:'center', headerSort:false,
+        formatter: () => '<i class="bi bi-trash" style="color:#e05252;cursor:pointer;font-size:11px;"></i>',
+        cellClick: (e, cell) => deleteReg(cell.getRow()) },
+    ]
+  });
+  refreshVendorFilter();
+  refreshSummary();
+}
+
+async function saveReg(cell) {
+  const row = cell.getRow().getData();
+  if (!row.id) return;
+  _invGuard?.setPending(true); _invIndicator?.saving();
+  try {
+    await fetch(`/api/vendor_registry/${row.id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[cell.getField()]: cell.getValue()})
+    });
+    allReg = regTable.getData();
+    refreshSummary();
+    _invIndicator?.saved();
+  } catch(e) { _invIndicator?.error(); }
+  finally { _invGuard?.setPending(false); }
+  toast('Saved');
+}
+
+async function addVendorReg() {
+  const vendor = (prompt('Vendor name:') || '').trim().toUpperCase();
+  if (!vendor) return;
+  const res  = await fetch('/api/vendor_registry', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({vendor})
+  });
+  const data = await res.json();
+  regTable.addRow({id: data.id, vendor, region:'', fx_rate:1.0, tax_pct:0, rebate_pct:0, contact:''});
+  refreshVendorFilter();
+  toast('Vendor added');
+}
+
+async function deleteReg(row) {
+  if (!confirm(`Delete ${row.getData().vendor} from registry?`)) return;
+  await fetch(`/api/vendor_registry/${row.getData().id}`, {method:'DELETE'});
+  row.delete();
+  allReg = regTable.getData();
+  refreshSummary();
+  toast('Deleted');
+}
+
+// ── Invoice Log ───────────────────────────────────────────────────────────────
+function buildInvTable(data) {
+  allInv = data;
+  if (invTable) { invTable.destroy(); invTable = null; }
+
+  invTable = new Tabulator('#inv-table', {
+    ...TABULATOR_PERF,
+    data, layout: 'fitData', height: '380px',
+    columnDefaults: { resizable: true, headerSort: true },
+    columns: [
+      { title:'VENDOR', field:'vendor', width:130,
+        editor:'list', editorParams:{values: () => allReg.map(r => r.vendor), freetext:true, autocomplete:true},
+        cellEdited: saveInv },
+      { title:'EP', field:'episode', width:65, hozAlign:'center',
+        editor:'list', editorParams:{values: EPS}, cellEdited: saveInv },
+      { title:'INV #', field:'inv_num', width:100, editor:'input', cellEdited: saveInv },
+      { title:'DATE', field:'inv_date', width:105, editor:'input',
+        editorParams:{mask:'9999-99-99', maskAutoFill:false},
+        cellEdited: saveInv },
+      { title:'AMOUNT (USD)', field:'amount', width:120, hozAlign:'right',
+        formatter: c => fmt$(c.getValue()),
+        editor:'number', editorParams:{min:0, step:100}, cellEdited: saveInv },
+      { title:'NET (after rebate)', field:'_net', width:130, hozAlign:'right',
+        headerSort: false,
+        formatter: c => {
+          const row = c.getRow().getData();
+          const reg = allReg.find(r => r.vendor?.toUpperCase() === (row.vendor||'').toUpperCase());
+          if (!reg || !row.amount) return '—';
+          const gross = row.amount * (reg.fx_rate || 1);
+          const tax   = gross * (reg.tax_pct   || 0);
+          const reb   = gross * (reg.rebate_pct || 0);
+          return `<span style="color:#52c46a;">${fmt$(gross + tax - reb)}</span>`;
+        }
+      },
+      { title:'STATUS', field:'status', width:110,
+        editor:'list', editorParams:{values: STATUSES},
+        formatter: c => {
+          const v = c.getValue()||'';
+          const col = {Paid:'#52c46a', Approved:'#4a9cf0', Pending:'#f0b429'}[v] || '#6870a0';
+          return `<span style="color:${col};font-weight:700;font-size:11px;">${v||'—'}</span>`;
+        },
+        cellEdited: saveInv },
+      { title:'APPROVE DATE', field:'approve_date', width:120, editor:'input', cellEdited: saveInv,
+        formatter: c => `<span style="color:#6870a0;">${c.getValue()||''}</span>` },
+      { title:'NOTES', field:'notes', width:180, editor:'textarea', formatter:'textarea', cellEdited: saveInv },
+      { title:'', width:38, hozAlign:'center', headerSort:false,
+        formatter: () => '<i class="bi bi-trash" style="color:#e05252;cursor:pointer;font-size:11px;"></i>',
+        cellClick: (e, cell) => deleteInv(cell.getRow()) },
+      { title:'AI', width:34, hozAlign:'center', headerSort:false,
+        tooltip: 'AI invoice anomaly check',
+        formatter: () => '<span style="color:#f0b429;cursor:pointer;font-size:12px;">✨</span>',
+        cellClick: (e, cell) => aiCheckInvoice(cell.getRow().getData()) },
+      { title:'SHOTS', width:52, hozAlign:'center', headerSort:false,
+        tooltip: 'Tag shots covered by this invoice',
+        formatter: c => {
+          const n = invShotCounts[c.getRow().getData().id] || 0;
+          return `<span style="cursor:pointer;color:${n>0?'#4a9cf0':'#3a4060'};font-size:11px;" title="Tag shots">
+            <i class="bi bi-camera-video${n>0?'-fill':''}"></i>${n>0?' '+n:''}
+          </span>`;
+        },
+        cellClick: (e, cell) => openTagModal(cell.getRow().getData()) },
+    ]
+  });
+  refreshSummary();
+}
+
+function applyInvFilter() {
+  if (!invTable) return;
+  invTable.clearFilter();
+  const vendor = document.getElementById('inv-vendor-filter').value;
+  const ep     = document.getElementById('inv-ep-filter').value;
+  const status = document.getElementById('inv-status-filter').value;
+  const filters = [];
+  if (vendor) filters.push({field:'vendor',  type:'like', value:vendor});
+  if (ep)     filters.push({field:'episode', type:'=',    value:parseInt(ep)});
+  if (status) filters.push({field:'status',  type:'like', value:status});
+  if (filters.length) invTable.setFilter(filters);
+}
+
+async function saveInv(cell) {
+  const row = cell.getRow().getData();
+  if (!row.id) return;
+  _invGuard?.setPending(true); _invIndicator?.saving();
+  try {
+    await fetch(`/api/invoicelog/${row.id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[cell.getField()]: cell.getValue()})
+    });
+    allInv = invTable.getData();
+    refreshSummary();
+    _invIndicator?.saved();
+  } catch(e) { _invIndicator?.error(); }
+  finally { _invGuard?.setPending(false); }
+  toast('Saved');
+}
+
+async function addInvoice() {
+  const res  = await fetch('/api/invoicelog', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      vendor: '', episode: EPS[0],
+      inv_num:'', inv_date: new Date().toISOString().slice(0,10),
+      amount: 0, status:'Pending', approve_date:'', notes:''
+    })
+  });
+  const data = await res.json();
+  invTable.addRow({id: data.id, vendor:'', episode: EPS[0],
+    inv_num:'', inv_date: new Date().toISOString().slice(0,10),
+    amount:0, status:'Pending', approve_date:'', notes:''});
+  toast('Invoice added');
+}
+
+async function deleteInv(row) {
+  if (!confirm('Delete this invoice?')) return;
+  await fetch(`/api/invoicelog/${row.getData().id}`, {method:'DELETE'});
+  row.delete();
+  allInv = invTable ? invTable.getData() : allInv.filter(i => i.id !== row.getData().id);
+  refreshSummary();
+  toast('Deleted');
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+function refreshSummary() {
+  const tbody = document.getElementById('summary-body');
+  const inv = invTable ? invTable.getData() : allInv;
+
+  // Aggregate by vendor
+  const map = {};
+  inv.forEach(i => {
+    const v = (i.vendor||'').toUpperCase();
+    if (!v) return;
+    if (!map[v]) map[v] = {vendor: i.vendor, total:0, paid:0, pending:0};
+    map[v].total   += i.amount || 0;
+    if ((i.status||'').toUpperCase() === 'PAID')
+      map[v].paid  += i.amount || 0;
+    else
+      map[v].pending += i.amount || 0;
+  });
+
+  const rows = Object.values(map);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No invoices yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const reg  = allReg.find(x => x.vendor?.toUpperCase() === r.vendor.toUpperCase());
+    const reb  = reg ? (reg.rebate_pct||0) : 0;
+    const net  = r.total - r.total * reb;
+    const conf = confidence[r.vendor] || confidence[r.vendor?.toUpperCase()] || null;
+    const confBadge = conf
+      ? `<span class="conf-badge conf-${conf.label.toLowerCase()}">${conf.label} (${(conf.confidence*100).toFixed(0)}%)</span>`
+      : '<span style="color:#2a3050;">—</span>';
+    return `<tr>
+      <td style="color:#d0d8f0;font-weight:600;">${r.vendor}</td>
+      <td style="color:#6870a0;">${reg ? reg.region : '—'}</td>
+      <td style="color:#a0b0e0;">${fmt$(r.total)}</td>
+      <td style="color:#52c46a;">${fmt$(r.paid)}</td>
+      <td style="color:#f0b429;">${fmt$(r.pending)}</td>
+      <td style="color:#52c46a;font-weight:600;">${fmt$(net)}</td>
+      <td style="color:#6870a0;">${reg ? pct((reg.rebate_pct||0)*100) : '—'}</td>
+      <td>${confBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function refreshVendorFilter() {
+  const sel = document.getElementById('inv-vendor-filter');
+  const cur = sel.value;
+  const vendors = [...new Set((regTable ? regTable.getData() : allReg).map(r => r.vendor).filter(Boolean))];
+  sel.innerHTML = '<option value="">All Vendors</option>' +
+    vendors.map(v => `<option${v===cur?' selected':''}>${v}</option>`).join('');
+}
+
+// ── Capacity ──────────────────────────────────────────────────────────────────
+function buildCapTable(data) {
+  allCap = data;
+  if (capTable) { capTable.destroy(); capTable = null; }
+  capTable = new Tabulator('#cap-table', {
+    ...TABULATOR_PERF,
+    data, layout: 'fitData', height: 'auto', maxHeight: '240px',
+    columnDefaults: { resizable: true },
+    columns: [
+      { title:'VENDOR', field:'vendor', width:150, editor:'input', cellEdited: saveCap },
+      { title:'SHOTS / MONTH', field:'shots_per_month', width:130, hozAlign:'right',
+        editor:'number', editorParams:{min:1, step:10}, cellEdited: saveCap },
+      { title:'EFFICIENCY %', field:'efficiency_pct', width:120, hozAlign:'right',
+        formatter: c => pct((c.getValue()||0.95)*100),
+        editor:'number', editorParams:{min:0.1, max:1, step:0.01, precision:2},
+        cellEdited: saveCap },
+      { title:'EFFECTIVE CAPACITY', width:160, hozAlign:'right', headerSort:false,
+        formatter: c => {
+          const row = c.getRow().getData();
+          const eff = Math.round((row.shots_per_month||100) * (row.efficiency_pct||0.95));
+          return `<span style="color:#4a9cf0;font-weight:600;">${eff} shots/mo</span>`;
+        }
+      },
+      { title:'', width:38, hozAlign:'center', headerSort:false,
+        formatter: () => '<i class="bi bi-trash" style="color:#e05252;cursor:pointer;font-size:11px;"></i>',
+        cellClick: (e, cell) => deleteCap(cell.getRow()) },
+    ]
+  });
+}
+
+async function saveCap(cell) {
+  const row = cell.getRow().getData();
+  if (!row.id) return;
+  await fetch(`/api/vendor_capacity/${row.id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({[cell.getField()]: cell.getValue()})
+  });
+  toast('Saved');
+}
+
+async function addCapacity() {
+  const vendor = (prompt('Vendor name:') || '').trim().toUpperCase();
+  if (!vendor) return;
+  const res  = await fetch('/api/vendor_capacity', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({vendor, shots_per_month:100, efficiency_pct:0.95})
+  });
+  const data = await res.json();
+  capTable.addRow({id: data.id, vendor, shots_per_month:100, efficiency_pct:0.95});
+  toast('Added');
+}
+
+async function deleteCap(row) {
+  if (!confirm('Remove this capacity entry?')) return;
+  await fetch(`/api/vendor_capacity/${row.getData().id}`, {method:'DELETE'});
+  row.delete();
+  toast('Deleted');
+}
+
+// ── Sync vendors from system data ─────────────────────────────────────────────
+async function syncVendorsFromTracker() {
+  const res = await fetch('/api/vendors/all');
+  const known = await res.json();
+  if (!known.length) { toast('No vendors found in system', false); return; }
+  const existing = new Set((regTable ? regTable.getData() : allReg).map(r => r.vendor?.toUpperCase()));
+  let added = 0;
+  for (const v of known) {
+    if (existing.has(v.toUpperCase())) continue;
+    const r = await fetch('/api/vendor_registry', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({vendor: v})
+    });
+    const d = await r.json();
+    if (regTable) regTable.addRow({id: d.id, vendor: v, region:'', fx_rate:1.0, tax_pct:0, rebate_pct:0, contact:''});
+    existing.add(v.toUpperCase());
+    added++;
+  }
+  allReg = regTable ? regTable.getData() : allReg;
+  refreshVendorFilter();
+  refreshSummary();
+  toast(added ? `Added ${added} vendor(s) from system` : 'All vendors already registered');
+}
+
+// ── Invoice-Shot Link counts ───────────────────────────────────────────────────
+let invShotCounts = {};   // invoice_id → linked shot count
+
+async function loadInvShotCounts() {
+  // One cheap call: query all links and aggregate client-side
+  // (no dedicated count endpoint needed — the list endpoint per invoice_id is used in modal)
+  // We store counts after modal saves; initialise from zero here.
+  // Counts are refreshed when a save happens.
+}
+
+// ── Tag Shots Modal ────────────────────────────────────────────────────────────
+let _tagInvoiceId  = null;
+let _tagAllShots   = [];
+let _tagLinkedIds  = new Set();
+
+async function openTagModal(row) {
+  _tagInvoiceId = row.id;
+  document.getElementById('tag-inv-label').textContent =
+    `#${row.inv_num||'?'} · ${row.vendor||'?'} · EP${row.episode||'?'} · ${fmt$(row.amount)}`;
+  document.getElementById('tag-search').value = '';
+
+  const res  = await fetch(`/api/invoicelog/${_tagInvoiceId}/shots`);
+  const data = await res.json();
+  _tagAllShots  = data.shots || [];
+  _tagLinkedIds = new Set((data.linked || []).map(Number));
+
+  renderTagShots(_tagAllShots);
+  const modal = document.getElementById('tag-shots-modal');
+  modal.style.display = 'flex';
+  document.getElementById('tag-search').focus();
+}
+
+function closeTagModal() {
+  document.getElementById('tag-shots-modal').style.display = 'none';
+  _tagInvoiceId = null; _tagAllShots = []; _tagLinkedIds = new Set();
+}
+
+function filterTagShots() {
+  const q = document.getElementById('tag-search').value.toLowerCase();
+  const filtered = q
+    ? _tagAllShots.filter(s =>
+        (s.scene_code||'').toLowerCase().includes(q) ||
+        (s.s_code||'').toLowerCase().includes(q) ||
+        (s.shot_type||'').toLowerCase().includes(q) ||
+        (s.award_vendor||'').toLowerCase().includes(q))
+    : _tagAllShots;
+  renderTagShots(filtered);
+}
+
+function renderTagShots(shots) {
+  const el = document.getElementById('tag-shots-list');
+  const cntEl = document.getElementById('tag-count');
+  cntEl.textContent = `${_tagLinkedIds.size} linked · ${shots.length} shown`;
+  if (!shots.length) {
+    el.innerHTML = '<div class="text-center text-muted py-4" style="font-size:12px;">No shots in this episode</div>';
+    return;
+  }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <thead><tr style="background:#0d0f1c;">
+      <th style="padding:5px 8px;color:#6870a0;font-size:9px;letter-spacing:.6px;width:28px;"></th>
+      <th style="padding:5px 8px;color:#6870a0;font-size:9px;letter-spacing:.6px;">SCENE</th>
+      <th style="padding:5px 8px;color:#6870a0;font-size:9px;letter-spacing:.6px;">SHOT</th>
+      <th style="padding:5px 8px;color:#6870a0;font-size:9px;letter-spacing:.6px;">TYPE</th>
+      <th style="padding:5px 8px;color:#6870a0;font-size:9px;letter-spacing:.6px;">COMPLEXITY</th>
+      <th style="padding:5px 8px;color:#6870a0;font-size:9px;letter-spacing:.6px;">VENDOR</th>
+      <th style="padding:5px 8px;color:#6870a0;font-size:9px;letter-spacing:.6px;text-align:right;">EST $</th>
+    </tr></thead>
+    <tbody>
+    ${shots.map(s => {
+      const checked = _tagLinkedIds.has(s.id);
+      return `<tr style="cursor:pointer;background:${checked?'rgba(74,156,240,.08)':''}" onclick="toggleTagShot(${s.id}, this)">
+        <td style="padding:4px 8px;text-align:center;">
+          <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();toggleTagShot(${s.id}, this.closest('tr'))"
+                 style="cursor:pointer;accent-color:#4a9cf0;">
+        </td>
+        <td style="padding:4px 8px;color:#a0b0e0;">${s.scene_code||'—'}</td>
+        <td style="padding:4px 8px;color:#d0d8f0;font-weight:600;">${s.s_code||'—'}</td>
+        <td style="padding:4px 8px;color:#6870a0;">${s.shot_type||'—'}</td>
+        <td style="padding:4px 8px;color:${s.complexity==='HERO'?'#e05252':s.complexity==='HIGH'?'#f0b429':'#6870a0'};">${s.complexity||'—'}</td>
+        <td style="padding:4px 8px;color:#4a9cf0;">${s.award_vendor||'—'}</td>
+        <td style="padding:4px 8px;color:#52c46a;text-align:right;">${fmt$(s.cost_est)}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function toggleTagShot(shotId, row) {
+  const cb = row.querySelector('input[type=checkbox]');
+  if (_tagLinkedIds.has(shotId)) {
+    _tagLinkedIds.delete(shotId);
+    row.style.background = '';
+    if (cb) cb.checked = false;
+  } else {
+    _tagLinkedIds.add(shotId);
+    row.style.background = 'rgba(74,156,240,.08)';
+    if (cb) cb.checked = true;
+  }
+  document.getElementById('tag-count').textContent =
+    `${_tagLinkedIds.size} linked · (unsaved)`;
+}
+
+async function saveTagShots() {
+  if (!_tagInvoiceId) return;
+  const shot_ids = Array.from(_tagLinkedIds);
+  await fetch(`/api/invoicelog/${_tagInvoiceId}/shots/bulk`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({shot_ids})
+  });
+  invShotCounts[_tagInvoiceId] = shot_ids.length;
+  if (invTable) invTable.redraw(true);   // refresh SHOTS column counts
+  closeTagModal();
+  toast(`${shot_ids.length} shot(s) linked`);
+}
+
+// ── Vendor Performance ─────────────────────────────────────────────────────────
+let perfData = [];
+
+function scoreBar(v, color='#4a9cf0') {
+  if (v == null) return '<span style="color:#3a4060;">—</span>';
+  const pct = Math.round(v * 100);
+  return `<div style="display:flex;align-items:center;gap:6px;">
+    <div style="flex:1;height:6px;background:#1e2240;border-radius:3px;overflow:hidden;">
+      <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;"></div>
+    </div>
+    <span style="font-size:10px;color:${color};width:30px;text-align:right;">${pct}%</span>
+  </div>`;
+}
+
+function renderPerfTable(data) {
+  perfData = data;
+  const tbody = document.getElementById('perf-body');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No data — add bids and invoices first</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(r => {
+    const labelColor = r.label==='STRONG' ? '#52c46a' : r.label==='MED' ? '#f0b429' : '#e05252';
+    return `<tr>
+      <td style="color:#d0d8f0;font-weight:600;">${r.vendor}</td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          ${scoreBar(r.composite_score, labelColor)}
+          <span style="font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 6px;border-radius:3px;
+                background:${labelColor}22;color:${labelColor};border:1px solid ${labelColor}44;">${r.label}</span>
+        </div>
+      </td>
+      <td>${scoreBar(r.bid_confidence, '#4a9cf0')}</td>
+      <td>${scoreBar(r.invoice_accuracy, '#52c46a')}</td>
+      <td>${scoreBar(r.edit_efficiency, '#9b59b6')}</td>
+      <td style="color:#6870a0;text-align:center;">${r.bid_samples}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  // Opt #8: unsaved guard; #11: save indicator
+  _invGuard     = initUnsavedGuard();
+  _invIndicator = initSaveIndicator('inv-panel-header');
+  // Opt #9: keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); init(); }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); if (invTable) invTable.download('csv','invoicelog.csv'); }
+    if (e.key === 'Escape') closeTagModal();
+  });
+  const [regRes, invRes, capRes, confRes, perfRes] = await Promise.all([
+    fetch('/api/vendor_registry'),
+    fetch('/api/invoicelog'),
+    fetch('/api/vendor_capacity'),
+    fetch('/api/vendor_confidence'),
+    fetch('/api/vendor_performance'),
+  ]);
+  const [regData, invData, capData, confData, perfData_] = await Promise.all([
+    regRes.json(), invRes.json(), capRes.json(), confRes.json(), perfRes.json()
+  ]);
+  confidence = confData;
+  buildRegTable(regData);
+  buildInvTable(invData);
+  buildCapTable(capData);
+  renderPerfTable(perfData_);
+}
+init();
+
+// ── AI invoice anomaly check ──────────────────────────────────────────────────
+async function aiCheckInvoice(row) {
+  showToast('Checking invoice with AI…', 'info');
+  try {
+    const res = await fetch('/api/llm/invoice_check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vendor:   row.vendor,
+        ep:       row.episode,
+        amount:   row.amount,
+        inv_num:  row.inv_num,
+        inv_date: row.inv_date,
+      }),
+    });
+    const d = await res.json();
+    const type = d.status === 'ok' ? 'success' : d.status === 'flag' ? 'error' : 'warning';
+    const icon = d.status === 'ok' ? '✓' : d.status === 'flag' ? '⚠ FLAG' : '⚠';
+    showToast(`${icon} ${d.message || d.status}`, type);
+  } catch(e) {
+    showToast('AI check error: ' + e, 'error');
+  }
+}
+</script>
+
+<style>
+.dist-table { width:100%; border-collapse:collapse; font-size:12px; }
+.dist-table th { background:#0d0f1c; color:#6870a0; font-size:9px; font-weight:700; letter-spacing:.7px;
+                 text-transform:uppercase; padding:7px 10px; border-bottom:1px solid #1e2240; text-align:left; }
+.dist-table td { padding:5px 10px; border-bottom:1px solid #0f1120; color:#a8b4d8; }
+.dist-table tr:hover td { background:#12152a; }
+.conf-badge { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.5px;
+              padding:1px 7px; border-radius:3px; }
+.conf-high { background:rgba(82,196,106,.15); color:#52c46a; border:1px solid rgba(82,196,106,.3); }
+.conf-med  { background:rgba(240,180,41,.15);  color:#f0b429; border:1px solid rgba(240,180,41,.3); }
+.conf-low  { background:rgba(224,82,82,.15);   color:#e05252; border:1px solid rgba(224,82,82,.3); }
+</style>
+{% endblock %}

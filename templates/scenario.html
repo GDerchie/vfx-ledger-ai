@@ -7,11 +7,28 @@
   <h5 class="mb-0 fw-bold text-warning">
     <i class="bi bi-graph-up-arrow me-2"></i>BUDGET SCENARIO &amp; FORECAST
   </h5>
-  <div class="ms-auto">
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm" id="sc-ai-btn" onclick="openScenarioAdvice()"
+            style="border-color:#4a9cf0;color:#4a9cf0;background:transparent;">
+      ✨ AI Advisor
+    </button>
     <button class="btn btn-sm btn-outline-secondary" onclick="exportEPCSV()">
       <i class="bi bi-download me-1"></i>Export EP CSV
     </button>
   </div>
+</div>
+
+<!-- AI Scenario Advice Panel -->
+<div id="sc-ai-panel" style="display:none;background:#0d0f1c;border:1px solid #2a3060;
+     border-radius:5px;padding:14px 16px;margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.7px;color:#4a9cf0;">
+      ✨ AI SCENARIO ADVISOR
+    </span>
+    <button onclick="document.getElementById('sc-ai-panel').style.display='none'"
+            style="background:none;border:none;color:#4a5080;cursor:pointer;font-size:14px;">✕</button>
+  </div>
+  <div id="sc-ai-output" style="font-size:12px;color:#d0d8f0;line-height:1.6;min-height:60px;"></div>
 </div>
 
 <div id="page-err" class="text-danger small mb-2" style="display:none;"></div>
@@ -679,4 +696,52 @@ document.addEventListener('DOMContentLoaded', loadAll);
 .sc-mix-btn-empty { color:#4a9cf0; border-color:#1a3050; }
 .sc-mix-btn-empty:hover { border-color:#4a9cf0; }
 </style>
+<script>
+// ── AI Scenario Advisor ───────────────────────────────────────────────────────
+async function openScenarioAdvice() {
+  const ep    = document.getElementById('sc-ep-sel') ? document.getElementById('sc-ep-sel').value : null;
+  const panel = document.getElementById('sc-ai-panel');
+  const out   = document.getElementById('sc-ai-output');
+  const btn   = document.getElementById('sc-ai-btn');
+  panel.style.display = 'block';
+  out.innerHTML = '<div style="color:#4a5080;font-size:10px;">Analysing scenarios…</div>';
+  btn.disabled  = true; btn.textContent = '✨ Analysing…';
+
+  try {
+    const res  = await fetch('/api/llm/scenario_advice', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ ep: ep ? parseInt(ep) : null })
+    });
+    const data = await res.json();
+    if (data.error) { out.innerHTML = `<div style="color:#e05252;">${data.error}</div>`; return; }
+
+    const RISK_COL = { low: '#52c46a', medium: '#f0b429', high: '#e05252' };
+    const rCol = RISK_COL[data.risk_level] || '#8090b0';
+    let html = `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">`;
+    if (data.recommended_scenario) {
+      html += `<div><span style="font-size:9px;color:#6870a0;">RECOMMENDED</span>
+        <div style="font-size:14px;font-weight:700;color:#f0b429;">${data.recommended_scenario}</div></div>`;
+    }
+    if (data.savings_potential) {
+      html += `<div><span style="font-size:9px;color:#6870a0;">SAVINGS POTENTIAL</span>
+        <div style="font-size:14px;font-weight:700;color:#52c46a;">
+          $${Math.round(data.savings_potential).toLocaleString()}</div></div>`;
+    }
+    if (data.risk_level) {
+      html += `<div><span style="font-size:9px;color:#6870a0;">RISK LEVEL</span>
+        <div style="font-size:14px;font-weight:700;color:${rCol};text-transform:uppercase;">
+          ${data.risk_level}</div></div>`;
+    }
+    html += '</div>';
+    if (data.reasoning) {
+      html += `<div style="font-size:11px;color:#c0cce8;line-height:1.7;">${data.reasoning}</div>`;
+    }
+    out.innerHTML = html;
+  } catch(e) {
+    out.innerHTML = `<div style="color:#e05252;">Error: ${e}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ AI Advisor';
+  }
+}
+</script>
 {% endblock %}

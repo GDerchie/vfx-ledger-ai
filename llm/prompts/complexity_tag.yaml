@@ -1,0 +1,10 @@
+name: complexity_tag
+version: 1
+output_schema: null
+retry_on_parse_fail: false
+template: |
+  VFX Description: {vfx_desc}
+  VFX Type: {shot_type}
+  ---
+  Rate complexity as SIMPLE, MEDIUM, or HEAVY.
+  Reply with ONLY the word.

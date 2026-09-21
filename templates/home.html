@@ -405,10 +405,25 @@ async function createProject(){
   await loadProjects();
 }
 
-async function deleteProject(id, name){
-  if(!confirm(`Delete project "${name}"?\n\nThis will permanently delete the .vfxdb file and all its data.`)) return;
-  await fetch(`/api/projects/${id}`, {method:'DELETE'});
+let _deleteTarget = null;
+
+function deleteProject(id, name){
+  _deleteTarget = { id, name };
+  document.getElementById('del-proj-name').textContent = name;
+  document.getElementById('delete-modal').style.display = 'flex';
+}
+
+async function confirmDelete(){
+  if (!_deleteTarget) return;
+  document.getElementById('delete-modal').style.display = 'none';
+  await fetch(`/api/projects/${_deleteTarget.id}`, {method:'DELETE'});
+  _deleteTarget = null;
   await loadProjects();
+}
+
+function cancelDelete(){
+  _deleteTarget = null;
+  document.getElementById('delete-modal').style.display = 'none';
 }
 
 function openEdit(id, name, season, desc){
@@ -445,5 +460,45 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProjects();
 });
 </script>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.7); align-items:center; justify-content:center;">
+  <div style="
+    background:#12152a; border:1px solid #e05252; border-radius:8px;
+    padding:28px 32px; max-width:380px; width:90%; text-align:center;
+    box-shadow:0 8px 40px rgba(0,0,0,.6);">
+    <div style="font-size:32px; margin-bottom:10px;">&#9888;</div>
+    <div style="color:#e05252; font-weight:700; font-size:14px; margin-bottom:8px; letter-spacing:.5px;">
+      DELETE PROJECT
+    </div>
+    <div style="color:#d0d8f0; font-size:12px; margin-bottom:6px;">
+      You are about to permanently delete:
+    </div>
+    <div id="del-proj-name" style="
+      color:#f0b429; font-weight:700; font-size:15px;
+      margin-bottom:12px; word-break:break-all;"></div>
+    <div style="color:#7880a0; font-size:11px; margin-bottom:22px;">
+      This will permanently remove the .vfxdb file and all its data.<br>
+      <strong style="color:#e05252;">This action cannot be undone.</strong>
+    </div>
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button onclick="cancelDelete()" style="
+        background:#1a1d35; border:1px solid #4a5080; color:#d0d8f0;
+        padding:8px 24px; border-radius:5px; font-size:12px;
+        cursor:pointer; font-weight:600; letter-spacing:.4px;">
+        CANCEL
+      </button>
+      <button onclick="confirmDelete()" style="
+        background:#2a0808; border:1px solid #e05252; color:#e05252;
+        padding:8px 24px; border-radius:5px; font-size:12px;
+        cursor:pointer; font-weight:700; letter-spacing:.4px;">
+        YES, DELETE
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

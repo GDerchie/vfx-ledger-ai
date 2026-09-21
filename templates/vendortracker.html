@@ -3,10 +3,20 @@
 
 {% block content %}
 <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-  <h5 class="mb-0 fw-bold text-warning">
+  <h5 class="mb-0 fw-bold text-warning" id="tracker-panel-header">
     <i class="bi bi-receipt me-2"></i>VENDOR TRACKER
   </h5>
-  <div class="ms-auto d-flex gap-2">
+  <div class="ms-auto d-flex gap-2 align-items-center">
+    <button class="btn btn-sm" id="vt-ai-btn" onclick="openVendorNarrative()"
+            style="border-color:#4a9cf0;color:#4a9cf0;background:transparent;">
+      ✨ Health Narrative
+    </button>
+    <a href="/invoicelog" class="btn-vfx" style="border-color:#4a9cf0;color:#4a9cf0;text-decoration:none;">
+      <i class="bi bi-journal-check me-1"></i>Invoice Log
+    </a>
+    <button class="btn btn-sm btn-outline-info" onclick="syncFromInvoices()">
+      <i class="bi bi-arrow-repeat me-1"></i>Sync from Invoice Log
+    </button>
     <button class="btn btn-sm btn-warning" onclick="openImport()">
       <i class="bi bi-upload me-1"></i>Import Excel
     </button>
@@ -14,6 +24,20 @@
       <i class="bi bi-trash me-1"></i>Clear All
     </button>
   </div>
+</div>
+
+<!-- Vendor Narrative Panel -->
+<div id="vt-narrative-panel" style="display:none;background:#0d0f1c;border:1px solid #2a3060;
+     border-radius:5px;padding:14px 16px;margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.7px;color:#4a9cf0;">
+      ✨ AI VENDOR HEALTH NARRATIVE
+    </span>
+    <button onclick="document.getElementById('vt-narrative-panel').style.display='none'"
+            style="background:none;border:none;color:#4a5080;cursor:pointer;font-size:14px;">✕</button>
+  </div>
+  <div id="vt-narrative-output" style="font-size:12px;color:#d0d8f0;white-space:pre-wrap;
+       line-height:1.7;min-height:60px;"></div>
 </div>
 
 <div id="err-msg" class="text-danger small mb-2" style="display:none;"></div>
@@ -86,6 +110,29 @@
 
 <!-- Stats row (per-episode) -->
 <div id="ep-stats-row" class="d-flex gap-2 mb-3 flex-wrap"></div>
+
+<!-- Vendor Capacity Panel -->
+<div class="mb-3" style="background:#12152a;border:1px solid #2e3050;border-radius:6px;overflow:hidden;">
+  <div class="d-flex align-items-center px-3 py-2" style="border-bottom:1px solid #2e3050;cursor:pointer;"
+       onclick="document.getElementById('cap-body').style.display = document.getElementById('cap-body').style.display==='none' ? '' : 'none';">
+    <i class="bi bi-speedometer2 me-2" style="color:#f0b429;"></i>
+    <span style="font-size:10px;font-weight:700;letter-spacing:.8px;color:#8090b0;">VENDOR CAPACITY &amp; LOAD</span>
+    <span style="font-size:9px;color:#4a5080;margin-left:10px;">assigned shots vs monthly capacity</span>
+    <span id="cap-overload-badge" style="display:none;margin-left:8px;font-size:9px;font-weight:700;
+          padding:1px 7px;border-radius:8px;background:rgba(224,82,82,.15);
+          border:1px solid rgba(224,82,82,.4);color:#e05252;">OVERLOADED</span>
+    <span style="font-size:10px;color:#2e3050;margin-left:auto;">▼ toggle</span>
+  </div>
+  <div id="cap-body" style="padding:10px 14px;">
+    <div id="cap-content" style="color:#4a5080;font-size:10px;">Loading…</div>
+    <div style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+      <a href="/vendortracker#capacity" onclick="showTab('capacity')"
+         style="font-size:9px;color:#4a9cf0;text-decoration:none;">
+        <i class="bi bi-pencil-square me-1"></i>Edit capacity settings
+      </a>
+    </div>
+  </div>
+</div>
 
 <!-- Tabs -->
 <ul class="nav nav-tabs mb-2" style="border-color:#2e3050;">
@@ -333,6 +380,10 @@ let invoiceTable = null;
 let allTracker   = [];
 let allInvoices  = [];
 
+// ── Save guard + indicator (Opt #8 / #11) ────────────────────────────────────
+let _trackerGuard     = null;
+let _trackerIndicator = null;
+
 // ── Formatters ──────────────────────────────────────────────────────
 function fmt(v) {
   const n = parseFloat(v);
@@ -574,17 +625,25 @@ async function saveCellTracker(cell, field) {
   }
 
   if (CASCADE_FIELDS.includes(field)) {
-    await cascadeTrackerRow(cell, field, val);
+    _trackerGuard?.setPending(true); _trackerIndicator?.saving();
+    try { await cascadeTrackerRow(cell, field, val); _trackerIndicator?.saved(); }
+    catch(e) { _trackerIndicator?.error(); }
+    finally { _trackerGuard?.setPending(false); }
     return;
   }
 
-  await fetch(`/api/vendortracker/${id}`, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({[field]: val})
-  });
-  const row = allTracker.find(r => r.id === id);
-  if (row) row[field] = val;
-  updateStats();
+  _trackerGuard?.setPending(true); _trackerIndicator?.saving();
+  try {
+    await fetch(`/api/vendortracker/${id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[field]: val})
+    });
+    const row = allTracker.find(r => r.id === id);
+    if (row) row[field] = val;
+    updateStats();
+    _trackerIndicator?.saved();
+  } catch(e) { _trackerIndicator?.error(); }
+  finally { _trackerGuard?.setPending(false); }
 }
 
 async function saveCellInvoice(cell, field) {
@@ -668,6 +727,7 @@ function buildTrackerTable(data) {
 
   if (!trackerTable) {
     trackerTable = new Tabulator('#tracker-table', {
+      ...TABULATOR_PERF,
       data: data, columns: cols, layout: 'fitData',
       height: 'calc(100vh - 300px)',
       placeholder: 'No vendor tracking data — click Add Row or import Excel',
@@ -720,6 +780,7 @@ function buildInvoiceTable(data) {
 
   if (!invoiceTable) {
     invoiceTable = new Tabulator('#invoice-table', {
+      ...TABULATOR_PERF,
       data: data, columns: cols, layout: 'fitData',
       height: 'calc(100vh - 300px)',
       placeholder: 'No invoices — click Add Invoice or import Excel',
@@ -745,6 +806,8 @@ async function loadData() {
   const errEl = document.getElementById('err-msg');
   errEl.style.display = 'none';
   try {
+    // Always sync tracker rows from invoice log first
+    await fetch('/api/vendortracker/sync-from-invoices', {method:'POST'});
     const [tRes, iRes] = await Promise.all([
       fetch('/api/vendortracker'),
       fetch('/api/invoicelog'),
@@ -964,6 +1027,13 @@ async function doImport() {
   }, 800);
 }
 
+async function syncFromInvoices() {
+  const res = await fetch('/api/vendortracker/sync-from-invoices', {method:'POST'});
+  const data = await res.json();
+  if (data.error) { alert('Sync failed: ' + data.error); return; }
+  loadData();
+}
+
 async function clearData() {
   if (!confirm('Clear ALL vendor tracker and invoice data?')) return;
   await fetch('/api/vendortracker/clear', {method:'DELETE'});
@@ -972,7 +1042,72 @@ async function clearData() {
   loadData();
 }
 
-document.addEventListener('DOMContentLoaded', loadData);
+// ── Vendor capacity load panel ────────────────────────────────────────────────
+async function loadCapacityPanel() {
+  const content = document.getElementById('cap-content');
+  const badge   = document.getElementById('cap-overload-badge');
+  if (!content) return;
+  try {
+    const res = await fetch('/api/vendor_loads');
+    const loads = await res.json();
+    if (!loads.length) {
+      content.innerHTML = '<span style="color:#4a5080;font-size:10px;">No vendors assigned yet. Set capacity in the Capacity tab below, then award shots to vendors.</span>';
+      return;
+    }
+    const hasOverload = loads.some(v => v.overload);
+    if (badge) badge.style.display = hasOverload ? 'inline-block' : 'none';
+
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    for (const v of loads) {
+      const util = v.utilization;
+      const pct  = util !== null ? Math.min(Math.round(util * 100), 200) : null;
+      let barColor = '#52c46a';   // green: safe
+      let label    = util !== null ? `${Math.round(util*100)}%` : 'no capacity set';
+      if (util !== null && util > 1.0)       { barColor = '#e05252'; }
+      else if (util !== null && util > 0.85) { barColor = '#f0b429'; }
+
+      const barWidth  = pct !== null ? Math.min(pct, 100) : 0;
+      const noCapNote = !v.has_capacity
+        ? '<span style="font-size:9px;color:#4a5080;margin-left:6px;">capacity not set</span>'
+        : '';
+
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="min-width:130px;font-size:11px;font-weight:600;color:#d0d8f0;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+               title="${v.vendor}">${v.vendor}</div>
+          <div style="flex:1;height:10px;background:#1a1d35;border-radius:5px;overflow:visible;position:relative;">
+            <div style="width:${barWidth}%;height:100%;background:${barColor};
+                        border-radius:5px;transition:width .3s;"></div>
+            ${pct !== null && pct > 100 ? `<div style="position:absolute;left:${Math.min(barWidth,100)}%;top:0;height:100%;
+              width:${Math.min(pct-100,100)}%;background:rgba(224,82,82,.4);border-radius:0 5px 5px 0;"></div>` : ''}
+          </div>
+          <div style="min-width:80px;font-size:10px;text-align:right;">
+            <span style="color:${barColor};font-weight:700;">${label}</span>
+            <span style="color:#4a5080;margin-left:4px;">${v.assigned}/${v.capacity} shots</span>
+            ${noCapNote}
+          </div>
+        </div>`;
+    }
+    html += '</div>';
+    content.innerHTML = html;
+  } catch(e) {
+    content.innerHTML = '<span style="color:#4a5080;font-size:10px;">Could not load capacity data.</span>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Opt #8: unsaved guard; #11: save indicator
+  _trackerGuard     = initUnsavedGuard();
+  _trackerIndicator = initSaveIndicator('tracker-panel-header');
+  // Opt #9: keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); loadData(); }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); if (trackerTable) trackerTable.download('csv','vendortracker.csv'); }
+  });
+  loadData();
+  loadCapacityPanel();
+});
 </script>
 
 <style>
@@ -993,4 +1128,46 @@ document.addEventListener('DOMContentLoaded', loadData);
 .tr-saletax, .tr-rebate { color: #4a9cf0 !important; }
 .tr-code { color: #9ba8c0 !important; font-style: italic; }
 </style>
+<script>
+// ── AI Vendor Narrative ───────────────────────────────────────────────────────
+function openVendorNarrative() {
+  const panel = document.getElementById('vt-narrative-panel');
+  const out   = document.getElementById('vt-narrative-output');
+  const btn   = document.getElementById('vt-ai-btn');
+  panel.style.display = 'block';
+  out.textContent = '';
+  btn.disabled = true; btn.textContent = '✨ Generating…';
+
+  fetch('/api/llm/vendor_narrative', { method: 'POST' }).then(async resp => {
+    if (!resp.ok || !resp.body) {
+      out.textContent = 'Error starting analysis.';
+      btn.disabled = false; btn.textContent = '✨ Health Narrative'; return;
+    }
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const body = line.slice(6);
+        if (body === '[DONE]') { btn.disabled = false; btn.textContent = '✨ Health Narrative'; return; }
+        try {
+          const d = JSON.parse(body);
+          if (d.t)     out.textContent += d.t;
+          if (d.error) out.textContent += '\n[Error: ' + d.error + ']';
+        } catch(e) {}
+      }
+    }
+    btn.disabled = false; btn.textContent = '✨ Health Narrative';
+  }).catch(e => {
+    out.textContent = 'Connection error: ' + e;
+    btn.disabled = false; btn.textContent = '✨ Health Narrative';
+  });
+}
+</script>
 {% endblock %}

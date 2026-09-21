@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — VFX Budget System{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h5 class="mb-0 text-warning fw-bold">
+        <i class="bi bi-clock-history me-2"></i>Audit Log
+      </h5>
+      <small class="text-muted">All field-level changes recorded across this project</small>
+    </div>
+    <span class="badge bg-secondary">{{ rows|length }} entries</span>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" action="/audit" class="row g-2 mb-3 align-items-end">
+    <div class="col-auto">
+      <label class="form-label form-label-sm text-muted mb-1" style="font-size:10px;letter-spacing:.5px;">TABLE</label>
+      <select name="table" class="form-select form-select-sm"
+              style="background:#0d0e18;border-color:#2e3050;color:#d0d8f0;font-size:12px;min-width:160px;">
+        <option value="" {% if not table_filter %}selected{% endif %}>All tables</option>
+        {% for t in tables %}
+        <option value="{{ t }}" {% if table_filter == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="form-label form-label-sm text-muted mb-1" style="font-size:10px;letter-spacing:.5px;">SHOW</label>
+      <select name="limit" class="form-select form-select-sm"
+              style="background:#0d0e18;border-color:#2e3050;color:#d0d8f0;font-size:12px;">
+        <option value="100"  {% if limit==100  %}selected{% endif %}>100 rows</option>
+        <option value="200"  {% if limit==200  %}selected{% endif %}>200 rows</option>
+        <option value="500"  {% if limit==500  %}selected{% endif %}>500 rows</option>
+        <option value="1000" {% if limit==1000 %}selected{% endif %}>1000 rows</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-sm btn-outline-warning" style="font-size:12px;">
+        <i class="bi bi-funnel me-1"></i>Filter
+      </button>
+      {% if table_filter %}
+      <a href="/audit" class="btn btn-sm btn-outline-secondary ms-1" style="font-size:12px;">
+        <i class="bi bi-x me-1"></i>Clear
+      </a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Table -->
+  {% if rows %}
+  <div class="table-responsive" style="max-height:75vh;overflow-y:auto;">
+    <table class="table table-sm table-hover align-middle mb-0"
+           style="font-size:12px;border-collapse:separate;border-spacing:0;">
+      <thead class="sticky-top" style="background:#0d0e18;z-index:2;">
+        <tr style="border-bottom:1px solid #2e3050;">
+          <th style="color:#6870a0;font-weight:600;letter-spacing:.5px;padding:6px 10px;white-space:nowrap;">TIMESTAMP</th>
+          <th style="color:#6870a0;font-weight:600;letter-spacing:.5px;padding:6px 10px;">TABLE</th>
+          <th style="color:#6870a0;font-weight:600;letter-spacing:.5px;padding:6px 10px;">ROW ID</th>
+          <th style="color:#6870a0;font-weight:600;letter-spacing:.5px;padding:6px 10px;">FIELD</th>
+          <th style="color:#6870a0;font-weight:600;letter-spacing:.5px;padding:6px 10px;">OLD VALUE</th>
+          <th style="color:#6870a0;font-weight:600;letter-spacing:.5px;padding:6px 10px;">NEW VALUE</th>
+          <th style="color:#6870a0;font-weight:600;letter-spacing:.5px;padding:6px 10px;">USER</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr style="border-bottom:1px solid #181a2a;">
+          <td style="color:#7880a0;padding:5px 10px;white-space:nowrap;font-family:monospace;font-size:11px;">
+            {{ row.timestamp or '—' }}
+          </td>
+          <td style="padding:5px 10px;">
+            <span class="badge" style="
+              background:{% if row.table_name == 'shots' %}#1a3040
+                {% elif row.table_name == 'assets' %}#1a2040
+                {% elif row.table_name == 'invoice_log' %}#2a1a30
+                {% else %}#1e2030{% endif %};
+              color:{% if row.table_name == 'shots' %}#4a9cf0
+                {% elif row.table_name == 'assets' %}#7a6cf0
+                {% elif row.table_name == 'invoice_log' %}#c06af0
+                {% else %}#6870a0{% endif %};
+              font-size:10px;font-weight:600;letter-spacing:.4px;">
+              {{ row.table_name }}
+            </span>
+          </td>
+          <td style="color:#6870a0;padding:5px 10px;font-family:monospace;">#{{ row.row_id }}</td>
+          <td style="color:#d0d8f0;padding:5px 10px;font-weight:500;">{{ row.field or '—' }}</td>
+          <td style="padding:5px 10px;">
+            <span style="color:#e05050;font-family:monospace;font-size:11px;">
+              {{ row.old_value if row.old_value not in ('', 'None', None) else '—' }}
+            </span>
+          </td>
+          <td style="padding:5px 10px;">
+            <span style="color:#52c46a;font-family:monospace;font-size:11px;">
+              {{ row.new_value if row.new_value not in ('', 'None', None) else '—' }}
+            </span>
+          </td>
+          <td style="color:#6870a0;padding:5px 10px;font-size:11px;">{{ row.user or 'system' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5" style="color:#4a5080;">
+    <i class="bi bi-clock-history" style="font-size:2rem;"></i>
+    <p class="mt-2 mb-0">No audit records found{% if table_filter %} for table <strong>{{ table_filter }}</strong>{% endif %}.</p>
+    <small>Changes to shot costs, EFC, vendor awards, and invoice status are recorded automatically.</small>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

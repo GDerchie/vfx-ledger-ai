@@ -37,6 +37,57 @@
             onclick="shotsTable && shotsTable.download('csv','ep{{ ep_num }}_shots.csv')">
       <i class="bi bi-download me-1"></i>Export CSV
     </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+            onclick="toggleColPanel(this)">
+      <i class="bi bi-layout-three-columns me-1"></i>Columns
+    </button>
+    <button type="button" class="btn btn-sm" id="batch-tag-btn"
+            onclick="batchTagShots()"
+            style="border-color:#f0b429;color:#f0b429;background:transparent;">
+      ✨ Tag All
+    </button>
+    <button type="button" class="btn btn-sm" id="batch-cmp-btn"
+            onclick="batchAutoComplexity()"
+            style="border-color:#9b59b6;color:#9b59b6;background:transparent;"
+            title="AI auto-tag complexity for all untagged shots">
+      ✨ Complexity
+    </button>
+    <button type="button" class="btn btn-sm" id="batch-vfx-btn"
+            onclick="batchFillVfxDesc()"
+            style="border-color:#1abc9c;color:#1abc9c;background:transparent;"
+            title="AI fill missing VFX descriptions">
+      ✨ VFX Desc
+    </button>
+    <button type="button" class="btn btn-sm" id="gap-analysis-btn"
+            onclick="openGapAnalysis()"
+            style="border-color:#4a9cf0;color:#4a9cf0;background:transparent;"
+            title="AI budget gap analysis for this episode">
+      ✨ Budget Gap
+    </button>
+  </div>
+</div>
+
+<!-- Budget Gap Analysis Panel -->
+<div id="gap-panel" style="display:none;background:#0d0f1c;border:1px solid #2a3060;
+     border-radius:5px;padding:12px 14px;margin-bottom:12px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.6px;color:#4a9cf0;">
+      ✨ AI BUDGET GAP ANALYSIS — EP{{ ep_num }}
+    </span>
+    <button onclick="document.getElementById('gap-panel').style.display='none'"
+            style="background:none;border:none;color:#4a5080;cursor:pointer;font-size:14px;">✕</button>
+  </div>
+  <div id="gap-output" style="font-size:11px;color:#d0d8f0;white-space:pre-wrap;
+       line-height:1.6;min-height:40px;">Running analysis…</div>
+</div>
+
+<!-- Column visibility panel (positioned by JS) -->
+<div id="col-panel" style="display:none;position:fixed;z-index:9999;
+     background:#14151f;border:1px solid #2e3050;border-radius:6px;
+     padding:12px 14px;width:210px;max-height:420px;overflow-y:auto;
+     box-shadow:0 6px 24px rgba(0,0,0,.7);">
+  <div style="font-size:9px;color:#6870a0;font-weight:700;letter-spacing:.7px;margin-bottom:8px;">
+    COLUMN VISIBILITY
   </div>
 </div>
 
@@ -216,13 +267,22 @@
             <td id="fc-avg-1" class="fc-out fc-money" style="color:#f0b429;">—</td>
           </tr>
           <tr>
-            <td class="fc-tier" style="color:#e05252;">HEAVY</td>
-            <td><input type="number" class="fc-in" id="fc-pct-2" value="25" min="0" max="100" oninput="recalcForecast()"> <span style="color:#6870a0;">%</span></td>
+            <td class="fc-tier" style="color:#e08232;">HEAVY</td>
+            <td><input type="number" class="fc-in" id="fc-pct-2" value="20" min="0" max="100" oninput="recalcForecast()"> <span style="color:#6870a0;">%</span></td>
             <td id="fc-sc-2"  class="fc-out">—</td>
             <td><input type="number" class="fc-in" id="fc-mult-2" value="2.5" step="0.1" min="0" oninput="recalcForecast()"></td>
             <td id="fc-wt-2"  class="fc-out">—</td>
             <td id="fc-tot-2" class="fc-out fc-money">—</td>
-            <td id="fc-avg-2" class="fc-out fc-money" style="color:#e05252;">—</td>
+            <td id="fc-avg-2" class="fc-out fc-money" style="color:#e08232;">—</td>
+          </tr>
+          <tr>
+            <td class="fc-tier" style="color:#e05252;">HERO</td>
+            <td><input type="number" class="fc-in" id="fc-pct-3" value="5" min="0" max="100" oninput="recalcForecast()"> <span style="color:#6870a0;">%</span></td>
+            <td id="fc-sc-3"  class="fc-out">—</td>
+            <td><input type="number" class="fc-in" id="fc-mult-3" value="5.0" step="0.5" min="0" oninput="recalcForecast()"></td>
+            <td id="fc-wt-3"  class="fc-out">—</td>
+            <td id="fc-tot-3" class="fc-out fc-money">—</td>
+            <td id="fc-avg-3" class="fc-out fc-money" style="color:#e05252;">—</td>
           </tr>
         </tbody>
       </table>
@@ -231,13 +291,75 @@
   </div>
 </div>
 
+<!-- Consistency Assistant Panel -->
+<div id="consistency-panel" style="
+  display:none; margin-bottom:10px;
+  background:#0d1220; border:1px solid #2e6040;
+  border-left:3px solid #1abc9c; border-radius:6px;
+  padding:10px 14px; font-size:11px;">
+  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+    <span style="color:#1abc9c; font-weight:700; letter-spacing:.6px; font-size:10px;">
+      CONSISTENCY ASSISTANT
+    </span>
+    <span id="ca-location" style="color:#f0b429; font-weight:600;"></span>
+    <span id="ca-matches" style="color:#4a5080; font-size:10px;"></span>
+    <button onclick="closeConsistency()" style="
+      margin-left:auto; background:none; border:none;
+      color:#4a5080; font-size:14px; cursor:pointer; line-height:1;">&#x2715;</button>
+  </div>
+  <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+
+    <!-- Suggestions column -->
+    <div style="flex:1; min-width:200px;">
+      <div style="color:#4a9cf0; font-size:9px; font-weight:700; letter-spacing:.6px; margin-bottom:5px;">SUGGESTED VALUES</div>
+      <div id="ca-suggestions" style="display:flex; flex-direction:column; gap:4px;"></div>
+    </div>
+
+    <!-- Assets column -->
+    <div id="ca-assets-col" style="flex:1; min-width:200px; display:none;">
+      <div style="color:#52c46a; font-size:9px; font-weight:700; letter-spacing:.6px; margin-bottom:5px;">ASSETS AT THIS LOCATION</div>
+      <div id="ca-assets"></div>
+    </div>
+
+    <!-- Apply button -->
+    <div style="display:flex; flex-direction:column; gap:6px; justify-content:flex-start; padding-top:18px;">
+      <button id="ca-apply-btn" onclick="applyConsistency()" style="
+        background:#0d2a1e; border:1px solid #1abc9c; color:#1abc9c;
+        padding:5px 14px; border-radius:4px; font-size:10px;
+        font-weight:700; letter-spacing:.5px; cursor:pointer;">
+        APPLY ALL
+      </button>
+      <button onclick="closeConsistency()" style="
+        background:none; border:1px solid #2a2e50; color:#4a5080;
+        padding:5px 14px; border-radius:4px; font-size:10px; cursor:pointer;">
+        DISMISS
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Shot List Table -->
 <div class="vfx-panel">
-  <div class="vfx-panel-header">
+  <div class="vfx-panel-header" id="shots-panel-header">
     <span><i class="bi bi-table me-2"></i>SHOT LIST — EP{{ ep_num }}</span>
     <span class="text-muted" style="font-size:10px;">Click any cell to edit • OMIT = dim row</span>
   </div>
   <div class="vfx-panel-body p-0">
+    <!-- Opt #10: Bulk action bar (hidden until rows selected) -->
+    <div id="bulk-bar" style="display:none;align-items:center;gap:8px;padding:6px 12px;background:#1e2240;border-bottom:1px solid #2a3060;">
+      <span id="bulk-count" style="font-size:11px;color:#8090b8;"></span>
+      <select id="bulk-status" class="vfx-input" style="width:140px;">
+        <option value="">Set Status…</option>
+        <option>Not Started</option><option>In Progress</option><option>Delivered</option><option>On Hold</option>
+      </select>
+      <button class="btn-vfx btn-vfx-gold" onclick="bulkUpdate('status', document.getElementById('bulk-status').value)">Apply</button>
+      <select id="bulk-complexity" class="vfx-input" style="width:130px;">
+        <option value="">Set Complexity…</option>
+        <option>Low</option><option>Medium</option><option>High</option><option>Hero</option>
+      </select>
+      <button class="btn-vfx btn-vfx-gold" onclick="bulkUpdate('complexity', document.getElementById('bulk-complexity').value)">Apply</button>
+      <button class="btn-vfx" onclick="clearBulk()" style="color:#8090b8;margin-left:4px;">Clear</button>
+    </div>
     <div id="shots-table" style="min-height:400px;"></div>
   </div>
 </div>
@@ -285,11 +407,114 @@ const EP = {{ ep_num }};
 const STATUS_OPTIONS = [
   '','? Vendor Rebid Pending','? Editorial-Driven','✓ On Budget','⚠ Over Budget','🔒 Locked','↓ Reducing'
 ];
-const TYPE_OPTIONS   = ['','CG','Comp','Roto','Paint','Grade','Crowd','Extension','Creature','FX','Title'];
+const TYPE_OPTIONS        = ['','CG','Comp','Roto','Paint','Grade','Crowd','Extension','Creature','FX','Title'];
+const COMPLEXITY_OPTIONS  = ['','Low','Medium','High','Hero'];
 const LOC_OPTIONS    = [];   // will populate from existing data
 
-let shotsTable = null;
-let shotsData  = [];
+let shotsTable   = null;
+let shotsData    = [];
+let sceneAssets  = {};   // scene_code → [{asset_name, asset_type, id}, …]
+let sceneCodeList = [];  // unique scene codes for autocomplete
+
+// ── Optimizations: unsaved guard + save indicator (Week 1) ───────────────────
+let _saveGuard     = null;   // initUnsavedGuard instance
+let _saveIndicator = null;   // initSaveIndicator instance
+
+// ── Consistency Assistant state ───────────────────────────────────────────────
+let _caRow      = null;   // current Tabulator row being assisted
+let _caSuggest  = null;   // last suggestion object from API
+let _caTimer    = null;   // debounce timer
+
+// ── Column visibility definitions ─────────────────────────────────────────────
+const COL_DEFS = [
+  { field:'shot_num',          label:'#',                 def:true  },
+  { field:'scene_code',        label:'SC',                def:true  },
+  { field:'s_code',            label:'S_CODE',            def:true  },
+  { field:'location',          label:'LOC',               def:true  },
+  { field:'ext_int',           label:'EXT/INT',           def:true  },
+  { field:'pg',                label:'PG',                def:false },
+  { field:'img',               label:'IMG',               def:false },
+  { field:'asset',             label:'ASSET',             def:true  },
+  { field:'_linked_assets',    label:'LINKED ASSETS',     def:true  },
+  { field:'script_desc',       label:'SCRIPT DESC',       def:true  },
+  { field:'vfx_desc',          label:'VFX DESC',          def:true  },
+  { field:'shot_type',         label:'TYPE',              def:true  },
+  { field:'complexity',        label:'COMPLEXITY',        def:true  },
+  { field:'omit',              label:'OMIT',              def:true  },
+  { field:'history_notes',     label:'HISTORY NOTES',     def:false },
+  { field:'shot_est',          label:'SHOT EST',          def:true  },
+  { field:'cost_est',          label:'COST EST',          def:true  },
+  { field:'budget_est',        label:'BUDGET EST',        def:true  },
+  { field:'award_vendor',      label:'AWARD VENDOR',      def:true  },
+  { field:'edit_count',        label:'EDIT #',            def:true  },
+  { field:'budget_award_cost', label:'BUDGET AWARD',      def:false },
+  { field:'efc',               label:'EFC',               def:true  },
+  { field:'_variance',         label:'VARIANCE',          def:true  },
+  { field:'notes',             label:'NOTES',             def:true  },
+];
+
+function applyColVisibility() {
+  if (!shotsTable) return;
+  COL_DEFS.forEach(d => {
+    const stored  = localStorage.getItem('ep_col_' + d.field);
+    const visible = stored !== null ? stored === '1' : d.def;
+    if (visible) shotsTable.showColumn(d.field);
+    else         shotsTable.hideColumn(d.field);
+  });
+}
+
+function toggleColPanel(btn) {
+  const panel = document.getElementById('col-panel');
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  const rect = btn.getBoundingClientRect();
+  panel.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  panel.style.left = Math.max(4, rect.right - 210) + 'px';
+  panel.innerHTML  =
+    '<div style="font-size:9px;color:#6870a0;font-weight:700;letter-spacing:.7px;margin-bottom:8px;">COLUMN VISIBILITY</div>' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#4a9cf0;cursor:pointer;padding:2px 0;margin-bottom:4px;border-bottom:1px solid #1e2240;">' +
+    '  <input type="checkbox" id="col-chk-all" onchange="toggleAllCols(this.checked)" style="accent-color:#f0b429;"> ALL' +
+    '</label>' +
+    COL_DEFS.map(d => {
+      const stored  = localStorage.getItem('ep_col_' + d.field);
+      const checked = stored !== null ? stored === '1' : d.def;
+      return `<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#d0d8f0;cursor:pointer;padding:2px 0;">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleCol('${d.field}',this.checked)"
+               style="accent-color:#f0b429;">${d.label}
+      </label>`;
+    }).join('');
+  // set "all" checkbox state
+  const allOn = COL_DEFS.every(d => {
+    const s = localStorage.getItem('ep_col_'+d.field);
+    return s !== null ? s==='1' : d.def;
+  });
+  document.getElementById('col-chk-all').checked = allOn;
+  panel.style.display = 'block';
+}
+
+function toggleCol(field, visible) {
+  if (!shotsTable) return;
+  if (visible) shotsTable.showColumn(field);
+  else         shotsTable.hideColumn(field);
+  localStorage.setItem('ep_col_' + field, visible ? '1' : '0');
+}
+
+function toggleAllCols(visible) {
+  COL_DEFS.forEach(d => toggleCol(d.field, visible));
+  // re-render checkboxes
+  COL_DEFS.forEach(d => {
+    const chk = document.querySelector(`[onchange*="'${d.field}'"]`);
+    if (chk) chk.checked = visible;
+  });
+}
+
+// Close col-panel on outside click
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('col-panel');
+  if (!panel || panel.style.display === 'none') return;
+  if (!panel.contains(e.target) && !e.target.closest('[onclick*="toggleColPanel"]')) {
+    panel.style.display = 'none';
+  }
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt$(v){ return v==null||v===''?'':
@@ -313,7 +538,7 @@ function updateCards(data){
   const active   = data.filter(r=>!r.omit);
   const shots    = active.reduce((a,r)=>a+(r.shot_est||0),0);  // sum est shots for count
   const editCnt  = active.reduce((a,r)=>a+(r.edit_count||0),0);
-  const est      = active.reduce((a,r)=>a+(r.cost_est||0),0);
+  const est      = active.reduce((a,r)=>a+(r.budget_est||(r.cost_est||0)*(r.shot_est||0)),0);
   const efc      = active.reduce((a,r)=>a+(r.efc||0),0);
   const variance = efc - est;
 
@@ -351,14 +576,58 @@ async function saveEpMeta(){
   toast('EP meta saved');
 }
 
+// ── Scene ↔ Asset lookup + scene code autocomplete list ──────────────────────
+async function loadSceneAssets(){
+  try {
+    const res    = await fetch(`/api/assets?ep=${EP}`);
+    const assets = await res.json();
+    sceneAssets  = {};
+    assets.forEach(a => {
+      const sc = String(a.scene_code || '').trim();
+      if (!sc) return;
+      if (!sceneAssets[sc]) sceneAssets[sc] = [];
+      sceneAssets[sc].push(a);
+    });
+    // seed autocomplete with asset scene codes
+    Object.keys(sceneAssets).forEach(sc => {
+      if (!sceneCodeList.includes(sc)) sceneCodeList.push(sc);
+    });
+  } catch(e) { console.warn('loadSceneAssets failed', e); }
+}
+
+function buildSceneCodeList(shots) {
+  const fromShots = shots.map(r => String(r.scene_code||'').trim()).filter(Boolean);
+  const merged    = new Set([...sceneCodeList, ...fromShots]);
+  sceneCodeList   = [...merged].sort((a,b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+}
+
 // ── Shots table ───────────────────────────────────────────────────────────────
 function buildShotsTable(data){
   if(shotsTable){ shotsTable.destroy(); shotsTable=null; }
 
+  // BUDGET EST = COST EST × SHOT EST — DEBUG
+  if(data.length){
+    const r0 = data[0];
+    const computed = (r0.cost_est||0) * (r0.shot_est||0);
+    let dbg = document.getElementById('_budget_debug');
+    if(!dbg){ dbg=document.createElement('div'); dbg.id='_budget_debug';
+      dbg.style='position:fixed;bottom:10px;right:10px;background:#222;color:#0f0;padding:8px;font:12px monospace;z-index:9999;border:1px solid #0f0;';
+      document.body.appendChild(dbg); }
+    dbg.innerHTML = `cost_est=${r0.cost_est} (${typeof r0.cost_est})<br>shot_est=${r0.shot_est} (${typeof r0.shot_est})<br>computed=${computed}`;
+  }
+  data.forEach(r => { r.budget_est = (r.cost_est||0) * (r.shot_est||0); });
+
   shotsTable = new Tabulator('#shots-table', {
+    ...TABULATOR_PERF,
     data: data,
     layout: 'fitDataFill',
     height: '500px',
+    selectable: true,
+    selectableRangeMode: 'click',
     rowFormatter: row => {
       if(row.getData().omit) row.getElement().classList.add('row-omit');
       else row.getElement().classList.remove('row-omit');
@@ -369,11 +638,32 @@ function buildShotsTable(data){
       { title:'#',     field:'shot_num',   width:55,  frozen:true, hozAlign:'center',
         editor:'number', cellEdited:saveCell },
       { title:'SC',    field:'scene_code', width:70,  frozen:true,
-        editor:'input',  cellEdited:saveCell },
+        editor:'list',
+        editorParams: () => ({
+          values: sceneCodeList,
+          autocomplete: true,
+          freetext: true,
+          allowEmpty: true,
+          listOnEmpty: false,
+          placeholderEmpty: 'No match',
+        }),
+        cellEdited: cell => {
+          saveCell(cell);
+          // Opt #13: duplicate shot detection
+          const val = (cell.getValue() || '').trim();
+          if (val && checkDuplicate(shotsTable, 'scene_code', val, cell.getRow().getData().id)) {
+            showToast('Duplicate scene code: ' + val, 'warning');
+          }
+        } },
       { title:'S_CODE',field:'s_code',     width:90,
         editor:'input',  cellEdited:saveCell },
       { title:'LOC',   field:'location',   width:110,
-        editor:'input',  cellEdited:saveCell },
+        editor:'input',
+        cellEdited: cell => {
+          saveCell(cell);
+          triggerConsistency(cell);
+        }
+      },
       { title:'EXT/INT', field:'ext_int',  width:75,
         editor:'list', editorParams:{values:['','EXT','INT','EXT/INT']}, cellEdited:saveCell },
       { title:'PG',    field:'pg',         width:55,
@@ -382,6 +672,24 @@ function buildShotsTable(data){
         editor:'input',  cellEdited:saveCell },
       { title:'ASSET', field:'asset',      width:130,
         editor:'input', formatter:'textarea', cellEdited:saveCell },
+      { title:'LINKED ASSETS', field:'_linked_assets', width:210,
+        headerSort:false,
+        formatter: cell => {
+          const sc = String(cell.getRow().getData().scene_code || '').trim();
+          const list = sceneAssets[sc] || [];
+          if (!list.length) return '<span style="color:#2a2e50;font-size:10px;">—</span>';
+          const colors = {CREATURE:'#e05252',CHAR:'#7090e0',ENV:'#52c46a',PROP:'#f0b429',
+                          WEAPON:'#e07050',FX:'#a070e0','3D':'#50c0e0',FLUID:'#50a0e0'};
+          return list.map(a => {
+            const col = colors[(a.asset_type||'').toUpperCase()] || '#6870a0';
+            return `<a href="/assets" title="SC ${sc} · ${a.asset_type||'?'}"
+                       style="font-size:10px;color:${col};background:rgba(255,255,255,.07);
+                              padding:1px 6px;border-radius:3px;margin-right:3px;
+                              text-decoration:none;white-space:nowrap;"
+                    >${a.asset_name}</a>`;
+          }).join('');
+        }
+      },
 
       // ── descriptions ──────────────────────────────────────────────────────
       { title:'SCRIPT DESCRIPTION', field:'script_desc', width:200,
@@ -392,6 +700,14 @@ function buildShotsTable(data){
       // ── flags ─────────────────────────────────────────────────────────────
       { title:'TYPE', field:'shot_type', width:90,
         editor:'list', editorParams:{values: TYPE_OPTIONS}, cellEdited:saveCell },
+      { title:'COMPLEXITY', field:'complexity', width:90,
+        editor:'list', editorParams:{values: COMPLEXITY_OPTIONS},
+        formatter: c => {
+          const v = c.getValue()||'';
+          const col = {Hero:'#e05252',High:'#e08232',Medium:'#f0b429',Low:'#52c46a'}[v] || '#6870a0';
+          return v ? `<span style="color:${col};font-weight:700;font-size:10px;">${v.toUpperCase()}</span>` : '';
+        },
+        cellEdited:saveCell },
       { title:'OMIT', field:'omit', width:55, hozAlign:'center',
         formatter:'tickCross', formatterParams:{allowEmpty:true},
         editor:'tickCross',
@@ -409,13 +725,15 @@ function buildShotsTable(data){
 
       // ── budget ────────────────────────────────────────────────────────────
       { title:'SHOT EST', field:'shot_est', width:80, hozAlign:'right',
-        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+        editor:'number', validator:['numeric','min:0'],
+        cellEdited:cell=>{ saveCell(cell); recalcBudget(cell.getRow()); updateCards(shotsTable.getData()); }},
       { title:'COST EST', field:'cost_est', width:100, hozAlign:'right',
         formatter: c=> fmt$(c.getValue()),
-        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+        editor:'number', validator:['numeric','min:0'],
+        cellEdited:cell=>{ saveCell(cell); recalcBudget(cell.getRow()); updateCards(shotsTable.getData()); }},
       { title:'BUDGET EST', field:'budget_est', width:105, hozAlign:'right',
-        formatter: c=> fmt$(c.getValue()),
-        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+        mutatorData: (v, row) => (row.cost_est||0) * (row.shot_est||0),
+        formatter: c=> fmt$(c.getValue()) },
       { title:'AWARD (Vendor)', field:'award_vendor', width:130,
         editor:'input', cellEdited:saveCell },
       { title:'EDIT #', field:'edit_count', width:70, hozAlign:'right',
@@ -425,11 +743,12 @@ function buildShotsTable(data){
         editor:'number', cellEdited:saveCell },
       { title:'EFC', field:'efc', width:100, hozAlign:'right',
         formatter: c=> fmt$(c.getValue()),
-        editor:'number', cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
+        editor:'number', validator:['numeric','min:0'],
+        cellEdited:cell=>{ saveCell(cell); updateCards(shotsTable.getData()); }},
       { title:'VARIANCE', field:'_variance', width:105, hozAlign:'right',
         formatter: cell => {
           const d = cell.getRow().getData();
-          const v = (d.efc||0) - (d.cost_est||0);
+          const v = (d.efc||0) - (d.budget_est||(d.cost_est||0)*(d.shot_est||0));
           const el = cell.getElement();
           el.classList.remove('cell-neg','cell-pos','cell-zero');
           if(v>0) el.classList.add('cell-neg');
@@ -440,6 +759,10 @@ function buildShotsTable(data){
         headerSort: false },
       { title:'NOTES', field:'notes', width:200,
         editor:'textarea', formatter:'textarea', cellEdited:saveCell },
+      // ── AI assistant ───────────────────────────────────────────────────────
+      { title:'✨', field:'_ai', width:35, hozAlign:'center', headerSort:false,
+        formatter: () => '<span title="AI Assistant" style="cursor:pointer;font-size:13px;user-select:none;">✨</span>',
+        cellClick: (e, cell) => openAIModal(cell.getRow().getData()) },
       // ── delete ────────────────────────────────────────────────────────────
       { title:'', width:40, hozAlign:'center', headerSort:false,
         formatter:()=>'<i class="bi bi-trash" style="color:#e05252;cursor:pointer;"></i>',
@@ -448,17 +771,57 @@ function buildShotsTable(data){
   });
 
   updateCards(data);
+  applyColVisibility();
+
+  // Opt #10: bulk row selection handler
+  shotsTable.on('rowSelectionChanged', (data, rows) => {
+    const bar = document.getElementById('bulk-bar');
+    if (bar) {
+      bar.style.display = rows.length > 1 ? 'flex' : 'none';
+      document.getElementById('bulk-count').textContent = rows.length + ' selected';
+    }
+  });
 }
+
+// ── Bulk update (Opt #10) ─────────────────────────────────────────────────────
+async function bulkUpdate(field, value) {
+  if (!value) return;
+  const ids = shotsTable.getSelectedData().map(r => r.id);
+  if (!confirm(`Update ${ids.length} shots — ${field}: "${value}"?`)) return;
+  await fetch('/api/shots/bulk', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ids, field, value})
+  });
+  // Reload shots
+  const res = await fetch(`/api/shots/${EP}`);
+  shotsData = await res.json();
+  buildShotsTable(shotsData);
+  showToast('Updated ' + ids.length + ' shots', 'success');
+}
+function clearBulk() { if (shotsTable) shotsTable.deselectRow(); }
 
 async function saveCell(cell){
   const row  = cell.getRow().getData();
   if(!row.id) return;
   const field = cell.getField();
-  await fetch(`/api/shots/${row.id}`,{
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({[field]: cell.getValue()})
-  });
-  toast('Saved');
+  _saveGuard?.setPending(true);
+  _saveIndicator?.saving();
+  try {
+    const res = await fetch(`/api/shots/${row.id}`,{
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[field]: cell.getValue()})
+    });
+    if (res.ok) { _saveIndicator?.saved(); toast('Saved'); }
+    else        { _saveIndicator?.error(); toast('Save error', true); }
+  } catch(e)  { _saveIndicator?.error(); toast('Save error', true); }
+  finally     { _saveGuard?.setPending(false); }
+}
+
+function recalcBudget(row){
+  const d = row.getData();
+  const budget = (d.cost_est||0) * (d.shot_est||0);
+  row.update({budget_est: budget});
+  if(d.id) fetch(`/api/shots/${d.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({budget_est:budget})});
 }
 
 async function addShot(){
@@ -526,7 +889,7 @@ async function snapshotHistory(){
 
   // read current aggregated values from stat cards
   const active   = shotsTable.getData().filter(r=>!r.omit);
-  const est      = active.reduce((a,r)=>a+(r.cost_est||0),0);
+  const est      = active.reduce((a,r)=>a+(r.budget_est||(r.cost_est||0)*(r.shot_est||0)),0);
   const efc      = active.reduce((a,r)=>a+(r.efc||0),0);
   const editCnt  = active.reduce((a,r)=>a+(r.edit_count||0),0);
   const shots    = active.length;
@@ -705,7 +1068,7 @@ function toggleForecast() {
 
 function syncForecastFromEP() {
   const active = shotsTable ? shotsTable.getData().filter(r => !r.omit) : [];
-  const budget = active.reduce((a, r) => a + (r.cost_est || 0), 0);
+  const budget = active.reduce((a, r) => a + (r.budget_est || (r.cost_est||0)*(r.shot_est||0)), 0);
   const shots  = active.length;
   document.getElementById('fc-budget').value = budget ? Math.round(budget) : '';
   document.getElementById('fc-shots').value  = shots  || '';
@@ -719,8 +1082,9 @@ function recalcForecast() {
   const avgCost = (budget > 0 && shotTotal > 0) ? budget / shotTotal : 0;
   document.getElementById('fc-avg-cost').textContent = avgCost ? fmt$(avgCost) : '—';
 
-  const pcts  = [0,1,2].map(i => (parseFloat(document.getElementById(`fc-pct-${i}`).value)  || 0) / 100);
-  const mults = [0,1,2].map(i =>  parseFloat(document.getElementById(`fc-mult-${i}`).value) || 0);
+  const TIERS = [0,1,2,3];
+  const pcts  = TIERS.map(i => (parseFloat(document.getElementById(`fc-pct-${i}`).value)  || 0) / 100);
+  const mults = TIERS.map(i =>  parseFloat(document.getElementById(`fc-mult-${i}`).value) || 0);
 
   const shotCounts = pcts.map(p => Math.round(shotTotal * p));
   const weights    = shotCounts.map((sc, i) => sc * mults[i]);
@@ -731,7 +1095,7 @@ function recalcForecast() {
   const baseCost = (budget > 0 && effort > 0) ? budget / effort : 0;
   document.getElementById('fc-base-cost').textContent = baseCost ? fmt$(baseCost) : '—';
 
-  for (let i = 0; i < 3; i++) {
+  for (const i of TIERS) {
     const sc  = shotCounts[i];
     const wt  = weights[i];
     const tot = wt * baseCost;
@@ -743,17 +1107,550 @@ function recalcForecast() {
   }
 }
 
+// ── Consistency Assistant ─────────────────────────────────────────────────────
+
+function triggerConsistency(cell) {
+  const loc = (cell.getValue() || '').trim();
+  if (loc.length < 4) { closeConsistency(); return; }
+  _caRow = cell.getRow();
+  clearTimeout(_caTimer);
+  _caTimer = setTimeout(() => fetchConsistency(loc, _caRow.getData().id), 400);
+}
+
+async function fetchConsistency(location, excludeId) {
+  const params = new URLSearchParams({ location });
+  if (excludeId) params.set('exclude_id', excludeId);
+  try {
+    const res  = await fetch('/api/shots/suggest?' + params);
+    const data = await res.json();
+    if (!data.matches) { closeConsistency(); return; }
+    _caSuggest = data;
+    renderConsistency(location, data);
+  } catch(e) { closeConsistency(); }
+}
+
+function renderConsistency(location, d) {
+  const panel = document.getElementById('consistency-panel');
+
+  // Header
+  document.getElementById('ca-location').textContent = location;
+  document.getElementById('ca-matches').textContent  =
+    `— ${d.matches} similar shot${d.matches !== 1 ? 's' : ''} found`;
+
+  // Suggestions
+  const sugDiv = document.getElementById('ca-suggestions');
+  sugDiv.innerHTML = '';
+
+  const row = _caRow ? _caRow.getData() : {};
+
+  function sugRow(icon, label, top, list, field, color) {
+    if (!top) return;
+    const isSet = !!(row[field]);
+    const items = list.slice(0,3).map(([v,c]) =>
+      `<span style="color:${color};font-weight:700;">${v}</span>
+       <span style="color:#4a5080;">(${c})</span>`
+    ).join(' &nbsp; ');
+    const badge = isSet
+      ? `<span style="color:#4a5080;font-size:9px;font-style:italic;"> · current: ${row[field]}</span>`
+      : '';
+    sugDiv.innerHTML +=
+      `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #1a2030;">
+         <span style="color:#4a5080;width:14px;text-align:center;">${icon}</span>
+         <span style="color:#7880a0;width:78px;font-size:9px;letter-spacing:.4px;">${label}</span>
+         <span>${items}${badge}</span>
+       </div>`;
+  }
+
+  sugRow('⬡', 'SHOT TYPE',   d.top_shot_type,  d.shot_type,   'shot_type',   '#4a9cf0');
+  sugRow('◈', 'COMPLEXITY',  d.top_complexity, d.complexity,  'complexity',  '#f0b429');
+  sugRow('$', 'AVG COST',    d.cost_avg ? '$'+d.cost_avg.toLocaleString() : '',
+    d.cost_avg ? [['$'+Math.round(d.cost_avg).toLocaleString()+' avg', 1]] : [],
+    'cost_est', '#52c46a');
+  sugRow('◉', 'VENDOR',      d.top_vendor,     d.vendor,      'award_vendor','#9b59b6');
+
+  // Cost range
+  if (d.cost_min && d.cost_max && d.cost_min !== d.cost_max) {
+    sugDiv.innerHTML +=
+      `<div style="color:#4a5080;font-size:9px;padding-top:3px;">
+         Range: <span style="color:#52c46a;">$${Math.round(d.cost_min).toLocaleString()}</span>
+         – <span style="color:#52c46a;">$${Math.round(d.cost_max).toLocaleString()}</span>
+       </div>`;
+  }
+
+  // Assets column
+  const assetsCol = document.getElementById('ca-assets-col');
+  const assetsDiv = document.getElementById('ca-assets');
+  if (d.assets && d.assets.length) {
+    assetsCol.style.display = '';
+    const typeColors = {Character:'#e05252',Environment:'#52c46a',Prop:'#f0b429',
+                        Other:'#4a9cf0',Rig:'#e08232'};
+    assetsDiv.innerHTML = d.assets.map(a => {
+      const col = typeColors[a.asset_type] || '#6870a0';
+      return `<div style="margin-bottom:4px;">
+        <span style="color:${col};font-weight:700;">${a.asset_name}</span>
+        <span style="color:#4a5080;font-size:9px;"> · ${a.asset_type||'?'} · EP${a.ep}</span>
+      </div>`;
+    }).join('');
+  } else {
+    assetsCol.style.display = 'none';
+  }
+
+  panel.style.display = 'block';
+}
+
+async function applyConsistency() {
+  if (!_caSuggest || !_caRow) return;
+  const d   = _caSuggest;
+  const row = _caRow.getData();
+  const id  = row.id;
+  if (!id) return;
+
+  const updates = {};
+
+  // Only fill empty fields
+  if (!row.shot_type   && d.top_shot_type)  updates.shot_type   = d.top_shot_type;
+  if (!row.complexity  && d.top_complexity) updates.complexity  = d.top_complexity;
+  if (!row.award_vendor && d.top_vendor)    updates.award_vendor = d.top_vendor;
+  if ((!row.cost_est || row.cost_est === 0) && d.cost_avg)
+    updates.cost_est = d.cost_avg;
+  // Suggest first matching asset name if asset field is empty
+  if (!row.asset && d.assets && d.assets.length)
+    updates.asset = d.assets[0].asset_name;
+
+  if (!Object.keys(updates).length) {
+    showToast('All fields already populated — nothing to apply', 'info');
+    return;
+  }
+
+  // Write to DB
+  _saveGuard?.setPending(true);
+  _saveIndicator?.saving();
+  try {
+    const res = await fetch(`/api/shots/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) {
+      // Update Tabulator row in-place
+      _caRow.update(updates);
+      _saveIndicator?.saved();
+      const applied = Object.keys(updates).join(', ');
+      showToast(`Applied: ${applied}`, 'success');
+      closeConsistency();
+    } else {
+      _saveIndicator?.error();
+      showToast('Apply failed', 'error');
+    }
+  } catch(e) { _saveIndicator?.error(); }
+  finally    { _saveGuard?.setPending(false); }
+}
+
+function closeConsistency() {
+  document.getElementById('consistency-panel').style.display = 'none';
+  _caRow     = null;
+  _caSuggest = null;
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init(){
+  // Week-1 optimizations: unsaved guard + save indicator
+  _saveGuard     = initUnsavedGuard();
+  _saveIndicator = initSaveIndicator('shots-panel-header');
+
+  // Opt #9: keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'n') { e.preventDefault(); addShot(); }
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); if (shotsTable) { const d = shotsTable.getData(); buildShotsTable(d); } }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); if (shotsTable) shotsTable.download('csv','ep{{ ep_num }}_shots.csv'); }
+  });
+
   await loadEpMeta();
+  await loadSceneAssets();
   const res = await fetch(`/api/shots/${EP}`);
   shotsData = await res.json();
+  buildSceneCodeList(shotsData);   // populate autocomplete list
   buildShotsTable(shotsData);
   await loadHistory();
   syncForecastFromEP();   // auto-populate forecast from loaded EP data
 }
 init();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AI ASSISTANT
+// ═══════════════════════════════════════════════════════════════════════════════
+let aiRow = null;  // current shot row data
+
+function openAIModal(rowData) {
+  aiRow = rowData;
+  // Header
+  document.getElementById('ai-modal-title').textContent =
+    `AI Assistant — SC ${rowData.scene_code || '?'}  EP${EP}`;
+  // Context block
+  document.getElementById('ai-ctx-loc').textContent    = rowData.location   || '—';
+  document.getElementById('ai-ctx-ei').textContent     = rowData.ext_int    || '—';
+  document.getElementById('ai-ctx-asset').textContent  = rowData.asset      || '—';
+  document.getElementById('ai-ctx-script').textContent = rowData.script_desc || '—';
+  // Current values
+  _aiShowCurrent('vfx',  rowData.vfx_desc  || '');
+  _aiShowCurrent('type', rowData.shot_type || '');
+  _aiShowCurrent('cost', rowData.cost_est  ? '$'+Number(rowData.cost_est).toLocaleString() : '');
+  // Reset previews
+  ['vfx','type','cost'].forEach(k => {
+    document.getElementById(`ai-${k}-preview`).style.display  = 'none';
+    document.getElementById(`ai-${k}-actions`).style.display  = 'none';
+    const btn = document.getElementById(`ai-${k}-btn`);
+    if (btn) { btn.disabled = false; btn.innerHTML = '✨ Generate'; }
+  });
+  new bootstrap.Modal(document.getElementById('aiModal')).show();
+}
+
+function _aiShowCurrent(key, val) {
+  const el = document.getElementById(`ai-${key}-cur`);
+  if (!el) return;
+  el.textContent = val || '(empty)';
+  el.className   = 'ai-cur-val' + (val ? ' has-val' : '');
+}
+
+function _aiContext() {
+  if (!aiRow) return {};
+  return {
+    scene_code:   aiRow.scene_code   || '',
+    location:     aiRow.location     || '',
+    ext_int:      aiRow.ext_int      || '',
+    script_desc:  aiRow.script_desc  || '',
+    asset:        aiRow.asset        || '',
+    vfx_desc:     aiRow.vfx_desc     || '',
+    shot_type:    aiRow.shot_type    || '',
+    complexity:   aiRow.complexity   || '',
+    award_vendor: aiRow.award_vendor || '',
+    ep:           EP,
+  };
+}
+
+async function aiSaveField(field, value) {
+  if (!aiRow) return;
+  await fetch(`/api/shots/${aiRow.id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body:   JSON.stringify({[field]: value}),
+  });
+  // update Tabulator in-memory
+  const row = shotsTable && shotsTable.getRow(aiRow.id);
+  if (row) row.update({[field]: value});
+  aiRow[field] = value;
+}
+
+// ── VFX Description ──────────────────────────────────────────────────────────
+function aiGenVfxDesc() {
+  llmUI({
+    task:      'vfx_desc',
+    context:   _aiContext(),
+    genBtn:    document.getElementById('ai-vfx-btn'),
+    previewEl: document.getElementById('ai-vfx-preview'),
+    actionsEl: document.getElementById('ai-vfx-actions'),
+    onAccept:  async (text) => {
+      await aiSaveField('vfx_desc', text.trim());
+      _aiShowCurrent('vfx', text.trim());
+      toast('VFX Description saved');
+    },
+  });
+}
+
+// ── Shot Type ────────────────────────────────────────────────────────────────
+function aiGenShotType() {
+  llmUI({
+    task:         'shot_type',
+    context:      _aiContext(),
+    genBtn:       document.getElementById('ai-type-btn'),
+    previewEl:    document.getElementById('ai-type-preview'),
+    actionsEl:    document.getElementById('ai-type-actions'),
+    postProcess:  text => text.trim().split(/\s/)[0],   // first word only
+    onAccept:     async (text) => {
+      await aiSaveField('shot_type', text.trim());
+      _aiShowCurrent('type', text.trim());
+      toast('Shot Type saved');
+    },
+  });
+}
+
+// ── Cost Estimate ────────────────────────────────────────────────────────────
+async function aiGenCostEst() {
+  const previewEl  = document.getElementById('ai-cost-preview');
+  const actionsEl  = document.getElementById('ai-cost-actions');
+  const genBtn     = document.getElementById('ai-cost-btn');
+  const actualsEl  = document.getElementById('ai-cost-actuals');
+  let   parsedEst  = null;
+  const ctx        = _aiContext();
+
+  // Show historical actuals panel before generating
+  if (actualsEl && (ctx.shot_type || ctx.complexity || ctx.award_vendor)) {
+    actualsEl.style.display = 'block';
+    actualsEl.innerHTML = '<span style="color:#4a5080;font-size:10px;">Loading project actuals…</span>';
+    try {
+      const params = new URLSearchParams();
+      if (ctx.shot_type)    params.set('shot_type',    ctx.shot_type);
+      if (ctx.complexity)   params.set('complexity',   ctx.complexity);
+      if (ctx.award_vendor) params.set('award_vendor', ctx.award_vendor);
+      const res     = await fetch('/api/cost_actuals?' + params.toString());
+      const data    = await res.json();
+      if (data.buckets && data.buckets.length) {
+        let html = '<div style="font-size:9px;font-weight:700;color:#4a9cf0;margin-bottom:4px;letter-spacing:.5px;">PROJECT ACTUALS</div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+        html += '<tr><th style="text-align:left;color:#6870a0;padding:2px 4px;">SCOPE</th>'
+              + '<th style="text-align:right;color:#6870a0;padding:2px 4px;">N</th>'
+              + '<th style="text-align:right;color:#6870a0;padding:2px 4px;">AVG</th>'
+              + '<th style="text-align:right;color:#6870a0;padding:2px 4px;">RANGE</th></tr>';
+        for (const b of data.buckets) {
+          html += `<tr>
+            <td style="color:#d0d8f0;padding:2px 4px;">${b.label}</td>
+            <td style="text-align:right;color:#8090b0;padding:2px 4px;">${b.n}</td>
+            <td style="text-align:right;color:#52c46a;font-weight:700;padding:2px 4px;">$${b.avg_cost.toLocaleString()}</td>
+            <td style="text-align:right;color:#6870a0;padding:2px 4px;">$${b.min_cost.toLocaleString()}–$${b.max_cost.toLocaleString()}</td>
+          </tr>`;
+        }
+        html += '</table>';
+        actualsEl.innerHTML = html;
+      } else {
+        actualsEl.innerHTML = '<span style="color:#4a5080;font-size:10px;">No project history yet for this type — estimate uses industry tiers.</span>';
+      }
+    } catch(e) {
+      actualsEl.innerHTML = '';
+      actualsEl.style.display = 'none';
+    }
+  } else if (actualsEl) {
+    actualsEl.style.display = 'none';
+  }
+
+  llmUI({
+    task:      'cost_est',
+    context:   ctx,
+    genBtn, previewEl, actionsEl,
+    postProcess: text => {
+      const obj = llmParseJSON(text);
+      if (obj && obj.estimate) {
+        parsedEst = obj.estimate;
+        return `Estimate: $${Number(obj.estimate).toLocaleString()}\nTier: ${obj.tier || '—'}\nReasoning: ${obj.reasoning || '—'}`;
+      }
+      parsedEst = null;
+      return text;
+    },
+    onAccept: async (text) => {
+      const val = parsedEst || parseFloat(text.replace(/[^0-9.]/g, ''));
+      if (!val) { toast('Could not parse estimate', true); return; }
+      await aiSaveField('cost_est', val);
+      _aiShowCurrent('cost', '$' + Number(val).toLocaleString());
+      updateCards(shotsTable.getData());
+      toast('Cost Estimate saved');
+    },
+  });
+}
+
+// ── Batch Tag All untyped shots ───────────────────────────────────────────────
+async function batchTagShots() {
+  const untyped = shotsTable.getData().filter(r => !r.omit && !r.shot_type && r.vfx_desc);
+  if (!untyped.length) {
+    toast('No untagged shots with VFX descriptions found');
+    return;
+  }
+  const btn = document.getElementById('batch-tag-btn');
+  btn.disabled    = true;
+  btn.textContent = `✨ Tagging ${untyped.length}…`;
+
+  const CHUNK = 15;
+  let tagged = 0;
+  for (let i = 0; i < untyped.length; i += CHUNK) {
+    const chunk = untyped.slice(i, i + CHUNK);
+    const shotsList = chunk.map(r =>
+      `${r.id}|SC${r.scene_code||'?'}|${(r.vfx_desc||'').substring(0,80)}`
+    ).join('\n');
+
+    const res = await llmComplete('complexity_batch', {shots_list: shotsList});
+    if (res.error) { toast('Batch tag error: ' + res.error, false); break; }
+
+    const lines = (res.result || '').split('\n');
+    for (const line of lines) {
+      const parts = line.trim().split('|');
+      if (parts.length < 2) continue;
+      const shotId    = parseInt(parts[0]);
+      const rawTag    = parts[parts.length - 1].trim().toUpperCase();
+      const typeMap   = {SIMPLE: 'Comp', MEDIUM: 'CG', HEAVY: 'Creature'};
+      const shotType  = typeMap[rawTag] || rawTag;
+      if (!shotId) continue;
+      await fetch(`/api/shots/${shotId}`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body:   JSON.stringify({shot_type: shotType}),
+      });
+      const row = shotsTable.getRow(shotId);
+      if (row) row.update({shot_type: shotType});
+      tagged++;
+    }
+    btn.textContent = `✨ Tagging… ${Math.min(i+CHUNK, untyped.length)}/${untyped.length}`;
+  }
+
+  btn.disabled    = false;
+  btn.textContent = '✨ Tag All';
+  toast(`Tagged ${tagged} shots`);
+}
+
+// ── Server-side batch complexity auto-tag ────────────────────────────────────
+async function batchAutoComplexity() {
+  const btn = document.getElementById('batch-cmp-btn');
+  btn.disabled = true; btn.textContent = '✨ Tagging…';
+  try {
+    const res = await fetch(`/api/llm/batch/complexity/{{ ep_num }}`, { method: 'POST' });
+    const d   = await res.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    showToast(`Complexity tagged: ${d.tagged}/${d.total} shots`, 'success');
+    // Refresh table data from server
+    const shots = await (await fetch(`/api/shots/{{ ep_num }}`)).json();
+    buildShotsTable(shots);
+  } catch(e) {
+    showToast('Batch complexity error: ' + e, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Complexity';
+  }
+}
+
+// ── Server-side batch VFX description fill ───────────────────────────────────
+async function batchFillVfxDesc() {
+  const btn = document.getElementById('batch-vfx-btn');
+  btn.disabled = true; btn.textContent = '✨ Filling…';
+  try {
+    const res = await fetch(`/api/llm/batch/vfx_desc/{{ ep_num }}`, { method: 'POST' });
+    const d   = await res.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    showToast(`VFX desc filled: ${d.filled}/${d.total} shots`, 'success');
+    const shots = await (await fetch(`/api/shots/{{ ep_num }}`)).json();
+    buildShotsTable(shots);
+  } catch(e) {
+    showToast('Batch VFX desc error: ' + e, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ VFX Desc';
+  }
+}
+
+// ── Budget gap analysis (streaming) ──────────────────────────────────────────
+function openGapAnalysis() {
+  const panel = document.getElementById('gap-panel');
+  const out   = document.getElementById('gap-output');
+  panel.style.display = 'block';
+  out.textContent = '';
+  const btn = document.getElementById('gap-analysis-btn');
+  btn.disabled = true;
+
+  const es = new EventSource(`/api/llm/budget_gap/{{ ep_num }}`);
+  fetch(`/api/llm/budget_gap/{{ ep_num }}`, { method: 'POST' }).then(async resp => {
+    if (!resp.ok || !resp.body) { out.textContent = 'Error starting analysis.'; return; }
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const body = line.slice(6);
+        if (body === '[DONE]') { btn.disabled = false; return; }
+        try {
+          const d = JSON.parse(body);
+          if (d.t)     out.textContent += d.t;
+          if (d.error) out.textContent += '\n[Error: ' + d.error + ']';
+        } catch(e) {}
+      }
+    }
+    btn.disabled = false;
+  }).catch(e => {
+    out.textContent = 'Connection error: ' + e;
+    btn.disabled = false;
+  });
+}
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     AI ASSISTANT MODAL
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="aiModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="background:#0d0e18;border:1px solid #2e3050;">
+
+      <div class="modal-header" style="background:#12152a;border-bottom:1px solid #2e3050;padding:10px 16px;">
+        <h6 class="modal-title" id="ai-modal-title"
+            style="color:#f0b429;font-size:12px;font-weight:700;letter-spacing:.5px;">
+          ✨ AI Assistant
+        </h6>
+        <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body" style="padding:14px 18px;">
+
+        <!-- Context -->
+        <div style="background:#0a0c18;border:1px solid #1e2240;border-radius:4px;padding:10px 14px;margin-bottom:14px;font-size:11px;">
+          <div style="font-size:9px;color:#6870a0;font-weight:700;letter-spacing:.7px;margin-bottom:6px;">SHOT CONTEXT</div>
+          <div class="row g-2">
+            <div class="col-auto"><span style="color:#4a5080;">Location:</span> <span id="ai-ctx-loc" style="color:#d0d8f0;"></span></div>
+            <div class="col-auto"><span style="color:#4a5080;">EXT/INT:</span>  <span id="ai-ctx-ei"  style="color:#d0d8f0;"></span></div>
+            <div class="col-auto"><span style="color:#4a5080;">Asset:</span>    <span id="ai-ctx-asset" style="color:#52c46a;"></span></div>
+          </div>
+          <div class="mt-1"><span style="color:#4a5080;">Script:</span> <span id="ai-ctx-script" style="color:#a0aac0;font-style:italic;"></span></div>
+        </div>
+
+        <!-- VFX Description -->
+        <div class="ai-section">
+          <div class="ai-section-lbl">VFX Description</div>
+          <div id="ai-vfx-cur" class="ai-cur-val mb-2"></div>
+          <button id="ai-vfx-btn" class="ai-btn" onclick="aiGenVfxDesc()">✨ Generate</button>
+          <div id="ai-vfx-preview" class="ai-preview"></div>
+          <div id="ai-vfx-actions" class="ai-actions">
+            <button class="ai-accept">Accept & Save</button>
+            <button class="ai-discard">Discard</button>
+          </div>
+        </div>
+
+        <!-- Shot Type -->
+        <div class="ai-section">
+          <div class="ai-section-lbl">Shot Type Classifier</div>
+          <div id="ai-type-cur" class="ai-cur-val mb-2"></div>
+          <button id="ai-type-btn" class="ai-btn" onclick="aiGenShotType()">✨ Classify</button>
+          <div class="text-muted mt-1 mb-1" style="font-size:10px;">
+            CG · Comp · Roto · Paint · Grade · Crowd · Extension · Creature · FX · Title
+          </div>
+          <div id="ai-type-preview" class="ai-preview"></div>
+          <div id="ai-type-actions" class="ai-actions">
+            <button class="ai-accept">Accept & Save</button>
+            <button class="ai-discard">Discard</button>
+          </div>
+        </div>
+
+        <!-- Cost Estimate -->
+        <div class="ai-section">
+          <div class="ai-section-lbl">Cost Estimate</div>
+          <div id="ai-cost-cur" class="ai-cur-val mb-2"></div>
+          <button id="ai-cost-btn" class="ai-btn" onclick="aiGenCostEst()">✨ Estimate</button>
+          <div id="ai-cost-actuals" style="display:none;margin:6px 0;padding:8px;
+               background:#0a0e1e;border:1px solid #1e2a50;border-radius:4px;"></div>
+          <div id="ai-cost-preview" class="ai-preview"></div>
+          <div id="ai-cost-actions" class="ai-actions">
+            <button class="ai-accept">Accept & Save</button>
+            <button class="ai-discard">Discard</button>
+          </div>
+        </div>
+
+      </div><!-- /modal-body -->
+
+      <div class="modal-footer" style="border-top:1px solid #1e2240;background:#0a0c18;padding:8px 16px;">
+        <span style="font-size:10px;color:#3a4060;">AI outputs should be reviewed before use.</span>
+        <button class="btn-vfx ms-auto" data-bs-dismiss="modal">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+.fc-table { width:100%; border-collapse:collapse; font-size:12px; }
 
 <style>
 .fc-table { width:100%; border-collapse:collapse; font-size:12px; }

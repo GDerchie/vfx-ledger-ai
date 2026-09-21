@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFX Budget System — Login</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<style>
+  body { background: #0b0d1a; color: #d0d8f0; font-family: 'Segoe UI', sans-serif; }
+  .login-card {
+    background: #12152a; border: 1px solid #2a3050; border-radius: 8px;
+    padding: 2.5rem 2rem; max-width: 380px; width: 100%;
+  }
+  .brand { color: #f0b429; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; }
+  .form-control {
+    background: #0d0f1c; border: 1px solid #2a3050; color: #d0d8f0;
+  }
+  .form-control:focus {
+    background: #0d0f1c; border-color: #f0b429; color: #d0d8f0;
+    box-shadow: 0 0 0 2px rgba(240,180,41,.15);
+  }
+  .btn-login {
+    background: #f0b429; color: #0b0d1a; font-weight: 700;
+    border: none; width: 100%;
+  }
+  .btn-login:hover { background: #e0a420; color: #0b0d1a; }
+  label { color: #8898c0; font-size: 0.82rem; letter-spacing: 0.04em; }
+</style>
+</head>
+<body class="d-flex align-items-center justify-content-center" style="min-height:100vh;">
+  <div class="login-card">
+    <div class="text-center mb-4">
+      <i class="bi bi-film" style="font-size:2rem; color:#f0b429;"></i>
+      <div class="brand mt-2">VFX BUDGET SYSTEM</div>
+      <div style="color:#5060a0; font-size:0.78rem;">Season Budget &amp; Production Tracker</div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger py-2 px-3" style="background:#2a1020; border-color:#803040; color:#f08080; font-size:0.85rem;">
+      <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label text-uppercase">PASSWORD</label>
+        <input type="password" name="password" class="form-control" autofocus autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-login mt-1">
+        <i class="bi bi-box-arrow-in-right me-1"></i>Sign In
+      </button>
+    </form>
+  </div>
+</body>
+</html>

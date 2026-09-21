@@ -1,0 +1,41 @@
+name: cost_est_v2
+version: 2
+output_schema:
+  type: object
+  properties:
+    estimate:
+      type: number
+    tier:
+      type: string
+      enum: [simple, medium, heavy]
+    reasoning:
+      type: string
+    confidence:
+      type: string
+      enum: [low, medium, high]
+retry_on_parse_fail: true
+template: |
+  VFX Type: {shot_type}
+  Complexity: {complexity}
+  VFX Description: {vfx_desc}
+  Location: {location}
+  Award Vendor: {award_vendor}
+
+  Project actuals (invoice-verified):
+  {actuals_context}
+
+  Invoice payment history for {award_vendor}:
+  {invoice_history}
+
+  Market bid context:
+  {bid_context}
+  ---
+  Estimate the VFX cost for this single shot in USD.
+  Priority order: (1) use invoice-verified actuals as the primary anchor if available,
+  (2) use market bid context to validate range, (3) fall back to tier reference only if
+  no project data exists.
+  Reference tiers (fallback only):
+    Simple (Roto/Paint/Grade): $3,000–$15,000
+    Medium (Comp/Extension/FX): $15,000–$60,000
+    Heavy (CG/Creature/Crowd): $60,000–$200,000+
+  Reply with ONLY valid JSON: {"estimate": 25000, "tier": "medium", "reasoning": "one sentence", "confidence": "high"}
