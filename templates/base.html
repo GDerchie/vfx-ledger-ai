@@ -44,7 +44,7 @@
 .ai-cur-val.has-val { color:#d0d8f0; font-style:normal; }
 </style>
 </head>
-<body data-bs-theme="dark">
+<body data-bs-theme="dark" data-theme="dark" id="vfx-body">
 
 <!-- NAVBAR -->
 <nav class="navbar navbar-expand-lg navbar-dark vfx-nav sticky-top">
@@ -121,6 +121,14 @@
       </ul>
       <div class="d-flex align-items-center gap-2">
         <span class="navbar-text text-muted small" id="nav-date"></span>
+        <!-- Theme toggle -->
+        <div id="vfx-theme-toggle" onclick="cycleTheme()" title="Switch theme">
+          <div class="theme-dot" data-t="dark"></div>
+          <div class="theme-dot" data-t="green"></div>
+          <div class="theme-dot" data-t="editorial"></div>
+          <div class="theme-dot" data-t="light"></div>
+          <span id="theme-label">Dark</span>
+        </div>
         <!-- Global Search -->
         <button class="btn btn-sm btn-outline-secondary" id="search-btn"
                 onclick="openSearch()"
@@ -341,5 +349,34 @@
 </style>
 
 {% block scripts %}{% endblock %}
+
+<script>
+/* ── Theme system ── */
+const THEMES = ['dark', 'green', 'editorial', 'light'];
+const THEME_LABELS = { dark:'Dark', green:'Green', editorial:'Editorial', light:'Light' };
+
+function applyTheme(t) {
+  const body = document.getElementById('vfx-body');
+  body.setAttribute('data-theme', t);
+  body.setAttribute('data-bs-theme', (t === 'light' || t === 'editorial') ? 'light' : 'dark');
+  document.querySelectorAll('.theme-dot').forEach(d => d.classList.toggle('active', d.dataset.t === t));
+  const lbl = document.getElementById('theme-label');
+  if (lbl) lbl.textContent = THEME_LABELS[t] || t;
+  localStorage.setItem('vfx-theme', t);
+}
+
+function cycleTheme() {
+  const current = document.getElementById('vfx-body').getAttribute('data-theme') || 'dark';
+  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+  applyTheme(next);
+}
+
+/* Restore saved theme on load */
+(function() {
+  const saved = localStorage.getItem('vfx-theme');
+  if (saved && THEMES.includes(saved)) applyTheme(saved);
+  else applyTheme('dark');
+})();
+</script>
 </body>
 </html>

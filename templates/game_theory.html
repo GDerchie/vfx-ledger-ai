@@ -1,1322 +1,1051 @@
-{% extends "base.html" %}
-{% block title %}Game Theory · VFX Budget System{% endblock %}
-
-{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Intelligence · {{ session.get('project_name', 'VFX') }}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 <style>
-/* ── Page layout ────────────────────────────── */
-.gt-section       { margin-bottom:28px; }
-.gt-section-hdr   { display:flex;align-items:center;gap:10px;margin-bottom:14px;
-                    border-bottom:1px solid #1e2240;padding-bottom:8px; }
-.gt-section-hdr h5{ margin:0;font-size:13px;font-weight:700;letter-spacing:.6px;
-                    text-transform:uppercase;color:#c8d0f0; }
-.gt-badge         { font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;
-                    letter-spacing:.5px; }
-.gt-badge-p10     { background:#102820;color:#52c46a;border:1px solid #1e4030; }
-.gt-badge-p50     { background:#1a1d35;color:#f0b429;border:1px solid #2e3050; }
-.gt-badge-p90     { background:#281010;color:#f05050;border:1px solid #402020; }
-.gt-badge-low     { background:#102820;color:#52c46a;border:1px solid #1e4030; }
-.gt-badge-med     { background:#202010;color:#f0b429;border:1px solid #3a3010; }
-.gt-badge-high    { background:#281010;color:#f05050;border:1px solid #402020; }
-.gt-badge-crit    { background:#301010;color:#ff7070;border:1px solid #501818; }
-.gt-badge-imp     { background:#181828;color:#9090f0;border:1px solid #2a2a50; }
-.gt-badge-sup     { background:#101820;color:#5090b0;border:1px solid #1a3040; }
-.gt-badge-agg     { background:#281010;color:#f05050;border:1px solid #402020; }
-.gt-badge-comp    { background:#202010;color:#f0b429;border:1px solid #3a3010; }
-.gt-badge-pass    { background:#101820;color:#5090b0;border:1px solid #1a3040; }
-.scenario-bar     { height:10px;border-radius:3px;transition:width .3s; }
-.kpi-card         { background:#0d0f1c;border:1px solid #1e2240;border-radius:6px;
-                    padding:14px 18px;text-align:center; }
-.kpi-val          { font-size:22px;font-weight:700;color:#f0b429; }
-.kpi-lbl          { font-size:10px;color:#6870a0;letter-spacing:.5px;text-transform:uppercase;
-                    margin-top:2px; }
-.kpi-sub          { font-size:11px;color:#7880a0;margin-top:4px; }
-.run-btn          { background:#1a1d35;border:1px solid #3a3d60;color:#d0d8f0;
-                    font-size:11px;padding:4px 14px;border-radius:4px;cursor:pointer;
-                    transition:border-color .15s; }
-.run-btn:hover    { border-color:#f0b429;color:#f0b429; }
-.run-btn:disabled { opacity:.4;cursor:not-allowed; }
-.gt-table         { width:100%;border-collapse:collapse;font-size:11px; }
-.gt-table th      { text-align:left;padding:5px 8px;font-size:9px;letter-spacing:.5px;
-                    text-transform:uppercase;color:#6870a0;border-bottom:1px solid #1e2240; }
-.gt-table td      { padding:5px 8px;border-bottom:1px solid #0f1120;color:#c8d0f0; }
-.gt-table tr:hover td { background:#0d1020; }
-.ep-bar-row       { display:flex;align-items:center;gap:8px;margin-bottom:6px; }
-.ep-label         { font-size:10px;color:#6870a0;width:40px;flex-shrink:0; }
-.ep-bars          { flex:1;display:flex;gap:3px;align-items:center; }
-.ep-bar-p10       { background:#1e4030;height:14px;border-radius:2px;min-width:2px; }
-.ep-bar-p50       { background:#3a3010;height:14px;border-radius:2px;min-width:2px; }
-.ep-bar-p90       { background:#401010;height:14px;border-radius:2px;min-width:2px; }
-.ep-vals          { font-size:10px;color:#7880a0;width:200px;flex-shrink:0; }
-.shapley-bar-bg   { background:#0d0f1c;border-radius:3px;height:8px;overflow:hidden; }
-.shapley-bar-fill { background:#f0b429;height:8px;border-radius:3px;transition:width .4s; }
-.defect-gauge     { display:inline-block;width:80px;height:8px;background:#1e2240;
-                    border-radius:4px;vertical-align:middle;overflow:hidden; }
-.defect-fill      { height:8px;border-radius:4px;transition:width .4s; }
-.loading-dots::after { content:' .'; animation:dots 1.2s steps(3,end) infinite; }
-@keyframes dots { 0%,20%{color:transparent;text-shadow:0 0 0 transparent}
-  40%{color:#f0b429;text-shadow:.4em 0 0 transparent,0.8em 0 0 transparent}
-  60%{text-shadow:.4em 0 0 #f0b429, .8em 0 0 transparent}
-  80%,100%{text-shadow:.4em 0 0 #f0b429, .8em 0 0 #f0b429} }
+/* ── Design tokens ── */
+:root {
+  --cr-bg:       #f7f4ee;
+  --cr-bg-alt:   #f0ece3;
+  --cr-bg-card:  #eae5da;
+  --cr-navy:     #1a1d2e;
+  --cr-navy-mid: #353850;
+  --cr-amber:    #c4622a;
+  --cr-amber-lt: #e8a575;
+  --cr-muted:    #7a7468;
+  --cr-rule:     #d8d2c6;
+  --cr-green:    #3a7a4a;
+  --cr-red:      #a83030;
+  --cr-white:    #ffffff;
+}
+
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--cr-bg);
+  color: var(--cr-navy);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── TOP BAR ── */
+.gt-topbar {
+  background: var(--cr-navy);
+  color: rgba(255,255,255,.5);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 0 48px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.gt-topbar a {
+  color: rgba(255,255,255,.45);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color .15s;
+}
+.gt-topbar a:hover { color: #fff; }
+.gt-topbar .proj-name { color: rgba(255,255,255,.8); font-weight: 700; }
+.gt-topbar .sys-name  { color: var(--cr-amber); }
+
+/* ── HERO ── */
+.gt-hero {
+  background: var(--cr-navy);
+  padding: 64px 48px 52px;
+  position: relative;
+  overflow: hidden;
+}
+.gt-hero::before {
+  content: 'STRATEGY';
+  position: absolute;
+  right: -16px;
+  bottom: -40px;
+  font-size: 140px;
+  font-weight: 900;
+  letter-spacing: -6px;
+  color: rgba(255,255,255,.03);
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+.gt-hero-inner { max-width: 1240px; margin: 0 auto; }
+.gt-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--cr-amber);
+  margin-bottom: 18px;
+}
+.gt-display {
+  font-size: clamp(44px, 6.5vw, 88px);
+  font-weight: 900;
+  line-height: .92;
+  letter-spacing: -3px;
+  color: #fff;
+  margin-bottom: 24px;
+}
+.gt-display em { color: var(--cr-amber); font-style: normal; }
+.gt-intro {
+  font-size: 16px;
+  color: rgba(255,255,255,.55);
+  max-width: 560px;
+  line-height: 1.65;
+  margin-bottom: 36px;
+}
+.gt-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gt-toc a {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.38);
+  text-decoration: none;
+  padding: 5px 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 3px;
+  transition: all .15s;
+}
+.gt-toc a:hover { color: rgba(255,255,255,.85); border-color: rgba(255,255,255,.3); }
+
+/* ── DIVIDER ── */
+.gt-chapter-divider {
+  background: var(--cr-navy);
+  padding: 18px 48px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: rgba(255,255,255,.2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.gt-chapter-divider::before, .gt-chapter-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,.08);
+}
+
+/* ── SECTIONS ── */
+.gt-section {
+  padding: 64px 48px;
+  border-bottom: 1px solid var(--cr-rule);
+}
+.gt-section:nth-child(even) { background: var(--cr-bg-alt); }
+.gt-section-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 64px;
+  align-items: start;
+}
+
+/* Left column */
+.gt-sec-num {
+  font-size: 80px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -4px;
+  color: var(--cr-amber);
+  opacity: .22;
+  margin-bottom: 2px;
+}
+.gt-sec-title {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.4px;
+  color: var(--cr-navy);
+  margin-bottom: 12px;
+}
+.gt-sec-plain {
+  font-size: 13px;
+  color: var(--cr-muted);
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.gt-sec-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--cr-amber);
+  background: rgba(196,98,42,.09);
+  border: 1px solid rgba(196,98,42,.22);
+  padding: 3px 9px;
+  border-radius: 3px;
+}
+
+/* ── KPI CARDS (Budget Range) ── */
+.gt-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.gt-kpi {
+  background: var(--cr-white);
+  border: 1px solid var(--cr-rule);
+  border-radius: 8px;
+  padding: 22px 18px 18px;
+  position: relative;
+}
+.gt-kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 8px 8px 0 0;
+  background: var(--cr-rule);
+}
+.gt-kpi.kpi-best::before  { background: var(--cr-green); }
+.gt-kpi.kpi-mid::before   { background: var(--cr-amber); }
+.gt-kpi.kpi-worst::before { background: var(--cr-red); }
+.gt-kpi-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--cr-muted);
+  margin-bottom: 10px;
+}
+.gt-kpi-value {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--cr-navy);
+  letter-spacing: -1.5px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.gt-kpi-sub {
+  font-size: 11px;
+  color: var(--cr-muted);
+  line-height: 1.4;
+}
+
+/* ── HISTOGRAM ── */
+.gt-hist {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 52px;
+  margin-bottom: 18px;
+}
+.gt-hist-bar {
+  flex: 1;
+  background: var(--cr-amber);
+  opacity: .35;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+  transition: opacity .15s;
+}
+.gt-hist-bar:hover { opacity: .8; }
+
+/* ── RUN BUTTON ── */
+.gt-run-btn {
+  background: var(--cr-navy);
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  padding: 11px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.gt-run-btn:hover:not(:disabled) { background: var(--cr-amber); }
+.gt-run-btn:disabled { opacity: .45; cursor: not-allowed; }
+.gt-run-btn .gt-spin {
+  width: 13px; height: 13px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  display: none;
+}
+.gt-run-btn.running .gt-spin { display: inline-block; }
+
+/* ── DATA TABLE ── */
+.gt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--cr-white);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--cr-rule);
+}
+.gt-table th {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--cr-muted);
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--cr-navy);
+  text-align: left;
+  white-space: nowrap;
+  background: var(--cr-bg-alt);
+}
+.gt-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--cr-rule);
+  color: var(--cr-navy);
+  vertical-align: middle;
+}
+.gt-table tr:last-child td { border-bottom: none; }
+.gt-table tr:hover td { background: rgba(196,98,42,.04); }
+
+/* ── BADGES ── */
+.ed-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 3px;
+}
+.ed-badge-low  { background: rgba(58,122,74,.12);  color: var(--cr-green); }
+.ed-badge-med  { background: rgba(196,98,42,.12);  color: var(--cr-amber); }
+.ed-badge-high { background: rgba(168,48,48,.12);  color: var(--cr-red);   }
+.ed-badge-crit { background: rgba(168,48,48,.2);   color: var(--cr-red);   border: 1px solid rgba(168,48,48,.28); }
+
+/* ── BAR ── */
+.gt-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gt-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--cr-rule);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.gt-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--cr-amber);
+  transition: width .45s ease;
+}
+.gt-bar-fill.bar-lo { background: var(--cr-green); }
+.gt-bar-fill.bar-hi { background: var(--cr-red); }
+.gt-bar-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cr-navy);
+  min-width: 52px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ── CALLOUTS ── */
+.gt-callout {
+  background: rgba(196,98,42,.07);
+  border-left: 3px solid var(--cr-amber);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  color: var(--cr-navy);
+  line-height: 1.6;
+}
+.gt-savings {
+  background: rgba(58,122,74,.08);
+  border-left: 3px solid var(--cr-green);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  font-size: 14px;
+  color: var(--cr-green);
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+/* ── EMPTY ── */
+.gt-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--cr-muted);
+  font-size: 13px;
+  background: var(--cr-white);
+  border-radius: 8px;
+  border: 1px dashed var(--cr-rule);
+}
+.gt-empty strong {
+  display: block;
+  font-size: 16px;
+  color: var(--cr-navy);
+  margin-bottom: 8px;
+}
+
+/* ── LOADER ── */
+.gt-loader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--cr-muted);
+  font-size: 12px;
+  padding: 24px 0;
+}
+.gt-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--cr-rule);
+  border-top-color: var(--cr-amber);
+  border-radius: 50%;
+  animation: spin .65s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── AUCTION CARDS ── */
+.gt-auction-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.gt-auction-card {
+  background: var(--cr-white);
+  border: 1px solid var(--cr-rule);
+  border-radius: 8px;
+  padding: 22px 18px;
+  position: relative;
+}
+.gt-auction-card.is-best {
+  border-color: var(--cr-green);
+  background: rgba(58,122,74,.04);
+}
+.gt-auction-type {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--cr-muted);
+  margin-bottom: 10px;
+}
+.gt-auction-amount {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--cr-navy);
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.gt-auction-desc {
+  font-size: 12px;
+  color: var(--cr-muted);
+  line-height: 1.55;
+}
+.gt-best-badge {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--cr-green);
+  background: rgba(58,122,74,.12);
+  border: 1px solid rgba(58,122,74,.22);
+  padding: 3px 9px;
+  border-radius: 3px;
+}
+
+/* ── COALITION PAIRS ── */
+.gt-pair {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--cr-rule);
+}
+.gt-pair:last-child { border-bottom: none; }
+.gt-pair-vendors {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cr-navy);
+}
+.gt-pair-vendors span { color: var(--cr-amber); margin: 0 8px; }
+.gt-pair-note { font-size: 11px; color: var(--cr-muted); }
+
+/* ── REPUTATION ── */
+.gt-rep-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cr-rule);
+}
+.gt-rep-row:last-child { border-bottom: none; }
+.gt-rep-name { flex: 1; font-size: 15px; font-weight: 700; color: var(--cr-navy); }
+.gt-rep-score { font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+
+/* ── FOOTER ── */
+.gt-footer {
+  background: var(--cr-navy);
+  color: rgba(255,255,255,.28);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 18px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gt-footer a {
+  color: rgba(255,255,255,.4);
+  text-decoration: none;
+  transition: color .15s;
+}
+.gt-footer a:hover { color: rgba(255,255,255,.8); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .gt-section-inner { grid-template-columns: 1fr; gap: 28px; }
+  .gt-kpi-row, .gt-auction-grid { grid-template-columns: 1fr; }
+  .gt-hero, .gt-section { padding-left: 24px; padding-right: 24px; }
+  .gt-topbar { padding: 0 24px; }
+  .gt-display { font-size: 40px; letter-spacing: -2px; }
+  .gt-sec-num { font-size: 56px; }
+}
 </style>
+</head>
 
-<div class="container-fluid px-3 py-3">
+<body>
 
-  <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
-  <div class="d-flex align-items-center gap-3 mb-4">
-    <div>
-      <h4 class="mb-0" style="color:#f0b429;font-size:16px;font-weight:700;letter-spacing:.5px;">
-        <i class="bi bi-diagram-3 me-2"></i>GAME THEORY ENGINE
-      </h4>
-      <div style="font-size:11px;color:#5860a0;margin-top:2px;">
-        Auction theory · Shapley value · Prisoner's Dilemma · Nash equilibrium
-      </div>
+<!-- TOP BAR -->
+<div class="gt-topbar">
+  <a href="/dashboard"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+  <span class="proj-name">
+    {{ session.get('project_name', '') }}{% if session.get('project_season') %} · {{ session.get('project_season') }}{% endif %}
+  </span>
+  <span class="sys-name">VFX Budget System</span>
+</div>
+
+<!-- HERO -->
+<div class="gt-hero">
+  <div class="gt-hero-inner">
+    <div class="gt-eyebrow">Budget Intelligence · Vendor Strategy Engine</div>
+    <h1 class="gt-display">Vendor<br><em>Strategy</em></h1>
+    <p class="gt-intro">Seven ways to read your vendor relationships — explained in production terms, not finance textbooks. Who's saving you money, who might go over budget, and where the stable deal actually is.</p>
+    <nav class="gt-toc">
+      <a href="#s001">001 Budget Range</a>
+      <a href="#s002">002 Who Saves Money</a>
+      <a href="#s003">003 Who Might Bail</a>
+      <a href="#s004">004 Stable Assignment</a>
+      <a href="#s005">005 Track Record</a>
+      <a href="#s006">006 Double-Booked</a>
+      <a href="#s007">007 How You Bid</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     001 — BUDGET RANGE
+════════════════════════════════════════════ -->
+<section id="s001" class="gt-section">
+  <div class="gt-section-inner">
+    <div class="gt-sec-left">
+      <div class="gt-sec-num">001</div>
+      <h2 class="gt-sec-title">What Will This Season Cost?</h2>
+      <p class="gt-sec-plain">Run 5,000 simulations of how vendor bids might land. Best case: everyone's hungry for work and bids sharp. Worst case: vendors know you need them and price high. The middle number is where you'll most likely land.</p>
+      <span class="gt-sec-tag">Auction Theory + Monte Carlo</span>
     </div>
-    <div class="ms-auto d-flex gap-2 align-items-center">
-      <label style="font-size:11px;color:#6870a0;">EP filter</label>
-      <select id="ep-filter" style="background:#0d0f1c;border:1px solid #2e3050;color:#c8d0f0;
-              font-size:11px;padding:3px 8px;border-radius:4px;">
-        <option value="">All EPs</option>
-      </select>
-      <button class="run-btn" onclick="runAll()" id="run-all-btn">
-        <i class="bi bi-play-fill me-1"></i>Run All Models
+    <div class="gt-sec-right">
+      <div class="gt-kpi-row">
+        <div class="gt-kpi kpi-best">
+          <div class="gt-kpi-label">Best Case</div>
+          <div class="gt-kpi-value" id="kpi-p10">—</div>
+          <div class="gt-kpi-sub">Vendors compete hard, bids come in sharp</div>
+        </div>
+        <div class="gt-kpi kpi-mid">
+          <div class="gt-kpi-label">Most Likely</div>
+          <div class="gt-kpi-value" id="kpi-p50">—</div>
+          <div class="gt-kpi-sub">Balanced market, bids as expected</div>
+        </div>
+        <div class="gt-kpi kpi-worst">
+          <div class="gt-kpi-label">Worst Case</div>
+          <div class="gt-kpi-value" id="kpi-p90">—</div>
+          <div class="gt-kpi-sub">Vendors know you need them, price accordingly</div>
+        </div>
+      </div>
+      <div id="hist-wrap" class="gt-hist" style="display:none"></div>
+      <div id="overrun-callout" style="display:none;margin-bottom:16px;"></div>
+      <button class="gt-run-btn" id="budget-btn" onclick="loadBudget()">
+        <div class="gt-spin"></div>
+        <i class="bi bi-play-fill" id="budget-icon"></i>
+        <span id="budget-label">Run Analysis</span>
       </button>
     </div>
   </div>
+</section>
 
-  <!-- ── KPI STRIP ──────────────────────────────────────────────────────── -->
-  <div class="row g-3 mb-4" id="kpi-strip" style="display:none!important;">
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-p10">—</div>
-      <div class="kpi-lbl">Competitive Budget (P10)</div>
-      <div class="kpi-sub">Best-case competition</div>
-    </div></div>
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-p50">—</div>
-      <div class="kpi-lbl">Nash Equilibrium (P50)</div>
-      <div class="kpi-sub">Rational strategic bidding</div>
-    </div></div>
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-p90">—</div>
-      <div class="kpi-lbl">Market Ceiling (P90)</div>
-      <div class="kpi-sub">Thin competition scenario</div>
-    </div></div>
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-savings">—</div>
-      <div class="kpi-lbl">Nash Savings vs Current</div>
-      <div class="kpi-sub">Reallocation opportunity</div>
-    </div></div>
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-high-risk">—</div>
-      <div class="kpi-lbl">High-Risk Vendors</div>
-      <div class="kpi-sub">Defection probability ≥55%</div>
-    </div></div>
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-chronic">—</div>
-      <div class="kpi-lbl">Chronic Overrunners</div>
-      <div class="kpi-sub">History across seasons</div>
-    </div></div>
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-coalition">—</div>
-      <div class="kpi-lbl">Coalition Blocks</div>
-      <div class="kpi-sub">Critical/high pairs</div>
-    </div></div>
-    <div class="col"><div class="kpi-card">
-      <div class="kpi-val" id="kpi-seasons-scanned">—</div>
-      <div class="kpi-lbl">Seasons in Memory</div>
-      <div class="kpi-sub">Historical projects scanned</div>
-    </div></div>
+<!-- ════════════════════════════════════════════
+     002 — WHO SAVES MONEY
+════════════════════════════════════════════ -->
+<section id="s002" class="gt-section">
+  <div class="gt-section-inner">
+    <div class="gt-sec-left">
+      <div class="gt-sec-num">002</div>
+      <h2 class="gt-sec-title">Who's Actually Saving You Money?</h2>
+      <p class="gt-sec-plain">If a vendor walked off your show today, how much would your total budget go up? The vendors with high scores here are keeping the whole market competitive. Low scores mean you're keeping them for other reasons — quality, relationships, specific sequences.</p>
+      <span class="gt-sec-tag">Shapley Value</span>
+    </div>
+    <div class="gt-sec-right" id="s002-body">
+      <div class="gt-loader"><div class="gt-spinner"></div>Loading vendor data…</div>
+    </div>
   </div>
+</section>
 
-  <div class="row g-3">
-
-    <!-- ── LEFT COLUMN ─────────────────────────────────────────────────── -->
-    <div class="col-lg-7">
-
-      <!-- 1. Budget Forecast ------------------------------------------ -->
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-graph-up me-2"></i>Budget Game Forecast</h5>
-          <span class="gt-badge gt-badge-p10">P10</span>
-          <span class="gt-badge gt-badge-p50">P50 Nash</span>
-          <span class="gt-badge gt-badge-p90">P90</span>
-          <button class="run-btn ms-auto" onclick="runForecast()" id="forecast-btn">Run</button>
-        </div>
-
-        <!-- EP breakdown bars -->
-        <div id="ep-bars-container" style="margin-bottom:14px;">
-          <div style="font-size:10px;color:#5860a0;">Run forecast to see EP breakdown</div>
-        </div>
-
-        <!-- Vendor aggression table -->
-        <div style="font-size:10px;color:#6870a0;margin-bottom:6px;letter-spacing:.4px;text-transform:uppercase;">
-          Vendor Bidding Strategy
-        </div>
-        <div id="aggression-container">
-          <div style="font-size:11px;color:#3840a0;">—</div>
-        </div>
-      </div>
-
-      <!-- 2. Nash Equilibrium Allocation ------------------------------ -->
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-arrow-left-right me-2"></i>Nash Equilibrium Allocation</h5>
-          <button class="run-btn ms-auto" onclick="runNash()" id="nash-btn">Run</button>
-        </div>
-        <div id="nash-summary" style="font-size:11px;color:#5860a0;margin-bottom:10px;">
-          Iterative best-response allocation — finds stable assignment where no vendor can profitably undercut.
-        </div>
-        <div id="nash-table-container">
-          <div style="font-size:11px;color:#3840a0;">—</div>
-        </div>
-      </div>
-
-    </div><!-- /left -->
-
-    <!-- ── RIGHT COLUMN ────────────────────────────────────────────────── -->
-    <div class="col-lg-5">
-
-      <!-- 3. Shapley Value Assessment ---------------------------------- -->
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-pie-chart me-2"></i>Shapley Value Assessment</h5>
-          <button class="run-btn ms-auto" onclick="runShapley()" id="shapley-btn">Run</button>
-        </div>
-        <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-          Marginal savings contribution of each vendor across all coalitions.
-        </div>
-        <div id="shapley-container">
-          <div style="font-size:11px;color:#3840a0;">—</div>
-        </div>
-      </div>
-
-      <!-- 4. Defection Risk ------------------------------------------- -->
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-exclamation-triangle me-2"></i>Defection Risk</h5>
-          <button class="run-btn ms-auto" onclick="runDefection()" id="defect-btn">Run</button>
-        </div>
-        <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-          Prisoner's Dilemma: probability a vendor overruns, under-delivers, or renegotiates mid-show.
-        </div>
-        <div id="defect-container">
-          <div style="font-size:11px;color:#3840a0;">—</div>
-        </div>
-      </div>
-
-    </div><!-- /right -->
-  </div><!-- /row -->
-
-  <!-- ── ROW 2: Repeated Memory + Auction Comparison ──────────────────── -->
-  <div class="row g-3 mt-1">
-
-    <!-- 5. Repeated Game Memory --------------------------------------- -->
-    <div class="col-lg-6">
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-clock-history me-2"></i>Repeated Game Memory</h5>
-          <span class="gt-badge gt-badge-crit">CHRONIC</span>
-          <span class="gt-badge gt-badge-med">MODERATE</span>
-          <span class="gt-badge gt-badge-low">CLEAN</span>
-          <button class="run-btn ms-auto" onclick="runMemory()" id="memory-btn">Run</button>
-        </div>
-        <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-          Scans all registered past-season projects for historical overrun patterns.
-          Vendors who over-billed in previous shows carry a memory penalty in defection risk.
-        </div>
-        <div id="memory-container">
-          <div style="font-size:11px;color:#3840a0;">—</div>
-        </div>
-      </div>
+<!-- ════════════════════════════════════════════
+     003 — WHO MIGHT BAIL
+════════════════════════════════════════════ -->
+<section id="s003" class="gt-section">
+  <div class="gt-section-inner">
+    <div class="gt-sec-left">
+      <div class="gt-sec-num">003</div>
+      <h2 class="gt-sec-title">Who Might Bail?</h2>
+      <p class="gt-sec-plain">A vendor "defects" when they come back for more money mid-show, miss delivery dates, or overpromise on shot counts. This score combines how overloaded they currently are, how accurately they've been paid, and their delivery track record.</p>
+      <span class="gt-sec-tag">Prisoner's Dilemma</span>
     </div>
-
-    <!-- 7. Auction Type Comparison ------------------------------------ -->
-    <div class="col-lg-6">
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-hammer me-2"></i>Auction Type Comparison</h5>
-          <span class="gt-badge gt-badge-low" title="First-Price Sealed Bid">FPA</span>
-          <span class="gt-badge gt-badge-p50" title="Vickrey / Second-Price">SPA</span>
-          <span class="gt-badge gt-badge-high" title="Negotiated / Bilateral">NEG</span>
-          <div class="ms-auto d-flex gap-2 align-items-center">
-            <button class="run-btn" onclick="runAuctionComp()" id="auction-btn">Run</button>
-          </div>
-        </div>
-        <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-          Revenue Equivalence Theorem (Myerson 1981) predicts FPA ≈ SPA — this shows
-          whether your specific vendor set breaks that symmetry and by how much.
-        </div>
-        <div id="auction-kpi">
-          <div style="font-size:11px;color:#3840a0;">—</div>
-        </div>
-      </div>
+    <div class="gt-sec-right" id="s003-body">
+      <div class="gt-loader"><div class="gt-spinner"></div>Loading reliability data…</div>
     </div>
+  </div>
+</section>
 
-  </div><!-- /row 2 -->
-
-  <!-- ── ROW 3: Coalition Blocking (full width) ────────────────────────── -->
-  <div class="row g-3 mt-1">
-    <div class="col-12">
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-shield-exclamation me-2"></i>Coalition Blocking</h5>
-          <span class="gt-badge gt-badge-crit">CRITICAL</span>
-          <span class="gt-badge gt-badge-high">HIGH</span>
-          <span class="gt-badge gt-badge-med">MEDIUM</span>
-          <div class="ms-auto d-flex gap-2 align-items-center">
-            <label style="font-size:10px;color:#6870a0;">Capacity threshold</label>
-            <select id="cap-threshold" style="background:#0d0f1c;border:1px solid #2e3050;
-                    color:#c8d0f0;font-size:11px;padding:2px 6px;border-radius:4px;">
-              <option value="0.60">60%</option>
-              <option value="0.70" selected>70%</option>
-              <option value="0.80">80%</option>
-              <option value="0.90">90%</option>
-            </select>
-            <button class="run-btn" onclick="runCoalition()" id="coalition-btn">Run</button>
-          </div>
-        </div>
-        <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-          Identifies vendor pairs where simultaneous capacity strain collapses
-          studio negotiating leverage. When two critical vendors are both overloaded
-          and exclusively cover the same scenes, your outside option disappears.
-        </div>
-        <div id="coalition-container">
-          <div style="font-size:11px;color:#3840a0;">—</div>
-        </div>
-      </div>
+<!-- ════════════════════════════════════════════
+     004 — STABLE ASSIGNMENT
+════════════════════════════════════════════ -->
+<section id="s004" class="gt-section">
+  <div class="gt-section-inner">
+    <div class="gt-sec-left">
+      <div class="gt-sec-num">004</div>
+      <h2 class="gt-sec-title">The Stable Assignment</h2>
+      <p class="gt-sec-plain">If you let the market settle — vendors proposing where they want to work, you accepting the best offer — this is where everything lands. At this point, moving any sequence to a different vendor would cost more. You've found the equilibrium.</p>
+      <span class="gt-sec-tag">Nash Equilibrium</span>
     </div>
-  </div><!-- /row 3 -->
-
-  <!-- ── ROW 4: Monte Carlo ─────────────────────────────────────────────── -->
-  <div class="row g-3 mt-1">
-    <div class="col-12">
-      <div class="gt-section">
-        <div class="gt-section-hdr">
-          <h5><i class="bi bi-dice-5 me-2"></i>Monte Carlo Simulation</h5>
-          <span class="gt-badge gt-badge-p50">BUDGET DIST</span>
-          <span class="gt-badge gt-badge-high">DEFECTION OVERRUN</span>
-          <span class="gt-badge gt-badge-imp">FRONTIER</span>
-          <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
-            <label style="font-size:10px;color:#6870a0;">Simulations</label>
-            <select id="mc-n-sim" style="background:#0d0f1c;border:1px solid #2e3050;
-                    color:#c8d0f0;font-size:11px;padding:2px 6px;border-radius:4px;">
-              <option value="1000">1 000</option>
-              <option value="5000" selected>5 000</option>
-              <option value="10000">10 000</option>
-              <option value="20000">20 000</option>
-            </select>
-            <label style="font-size:10px;color:#6870a0;margin-left:6px;">
-              <input type="checkbox" id="mc-correlated" checked style="margin-right:3px;">
-              Correlated
-            </label>
-            <button class="run-btn" onclick="runMcBudget()" id="mc-budget-btn">Budget</button>
-            <button class="run-btn" onclick="runMcDefection()" id="mc-defect-btn">Defection</button>
-            <button class="run-btn" onclick="runMcFrontier()" id="mc-frontier-btn">Frontier</button>
-          </div>
-        </div>
-
-        <!-- MC KPIs -->
-        <div id="mc-kpi-row" class="d-flex gap-3 flex-wrap mb-3" style="display:none!important;"></div>
-
-        <!-- Tabs -->
-        <div style="display:flex;gap:0;border-bottom:1px solid #1e2240;margin-bottom:14px;" id="mc-tabs">
-          <button class="mc-tab-btn active" onclick="showMcTab('budget')"   id="mctab-budget">Budget Distribution</button>
-          <button class="mc-tab-btn"        onclick="showMcTab('defection')" id="mctab-defection">Defection Overrun</button>
-          <button class="mc-tab-btn"        onclick="showMcTab('frontier')"  id="mctab-frontier">Efficient Frontier</button>
-        </div>
-
-        <div id="mc-panel-budget">
-          <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-            N independent season budget simulations.
-            Each trial samples every vendor's per-scene bid from N(μ, σ) — optionally
-            with correlated Cholesky sampling across vendors.
-          </div>
-          <div id="mc-budget-content"><div style="font-size:11px;color:#3840a0;">—</div></div>
-        </div>
-
-        <div id="mc-panel-defection" style="display:none;">
-          <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-            Each trial: every vendor independently defects with P = their defection probability.
-            Overrun drawn from U[lo%, hi%] of vendor workload × avg shot cost.
-          </div>
-          <div id="mc-defect-content"><div style="font-size:11px;color:#3840a0;">—</div></div>
-        </div>
-
-        <div id="mc-panel-frontier" style="display:none;">
-          <div style="font-size:10px;color:#5860a0;margin-bottom:10px;">
-            Pareto-optimal cost vs risk (std dev) frontier across random vendor preference policies.
-            Each point is a different vendor weighting strategy.
-          </div>
-          <div id="mc-frontier-content"><div style="font-size:11px;color:#3840a0;">—</div></div>
-        </div>
-
-      </div>
+    <div class="gt-sec-right" id="s004-body">
+      <div class="gt-loader"><div class="gt-spinner"></div>Calculating equilibrium…</div>
     </div>
-  </div><!-- /row 4 -->
+  </div>
+</section>
 
-</div><!-- /container -->
+<!-- ════════════════════════════════════════════
+     005 — TRACK RECORD
+════════════════════════════════════════════ -->
+<section id="s005" class="gt-section">
+  <div class="gt-section-inner">
+    <div class="gt-sec-left">
+      <div class="gt-sec-num">005</div>
+      <h2 class="gt-sec-title">Track Record Across Shows</h2>
+      <p class="gt-sec-plain">Vendors who have worked with your studio before carry a reputation score built from past overruns, on-time delivery, and budget accuracy. That history feeds directly into the risk numbers in sections 002 and 003.</p>
+      <span class="gt-sec-tag">Repeated Game Memory</span>
+    </div>
+    <div class="gt-sec-right" id="s005-body">
+      <div class="gt-loader"><div class="gt-spinner"></div>Scanning project history…</div>
+    </div>
+  </div>
+</section>
 
-<style>
-.mc-tab-btn {
-  background:none;border:none;border-bottom:2px solid transparent;
-  color:#6870a0;font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;
-  padding:6px 14px;cursor:pointer;transition:color .15s,border-color .15s;
-}
-.mc-tab-btn.active { color:#f0b429;border-bottom-color:#f0b429; }
-.mc-tab-btn:hover  { color:#c8d0f0; }
-.mc-hist-bar-row { display:flex;align-items:center;gap:6px;margin-bottom:2px; }
-.mc-hist-label   { font-size:9px;color:#3840a0;width:70px;flex-shrink:0;text-align:right; }
-.mc-hist-bar-bg  { flex:1;background:#080a14;border-radius:2px;height:12px;overflow:hidden; }
-.mc-hist-bar-fill{ height:12px;border-radius:2px;transition:width .3s; }
-.mc-hist-count   { font-size:9px;color:#5860a0;width:45px;flex-shrink:0; }
-.frontier-dot    { fill:#3a4060;stroke:#5060a0;stroke-width:1; }
-.frontier-dot-ef { fill:#f0b429;stroke:#f0b429;stroke-width:1; }
-.frontier-dot-mc { fill:#52c46a;stroke:#52c46a;stroke-width:1; }
-.frontier-dot-mr { fill:#f05050;stroke:#f05050;stroke-width:1; }
-</style>
+<!-- ════════════════════════════════════════════
+     006 — DOUBLE-BOOKED
+════════════════════════════════════════════ -->
+<section id="s006" class="gt-section">
+  <div class="gt-section-inner">
+    <div class="gt-sec-left">
+      <div class="gt-sec-num">006</div>
+      <h2 class="gt-sec-title">Double-Booked Alert</h2>
+      <p class="gt-sec-plain">When two vendors you depend on are both running at full capacity at the same time, your negotiating leverage disappears — they both know you can't move the work elsewhere. These are the pairs to watch and protect against.</p>
+      <span class="gt-sec-tag">Coalition Blocking</span>
+    </div>
+    <div class="gt-sec-right" id="s006-body">
+      <div class="gt-loader"><div class="gt-spinner"></div>Checking capacity collisions…</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     007 — HOW YOU BID
+════════════════════════════════════════════ -->
+<section id="s007" class="gt-section">
+  <div class="gt-section-inner">
+    <div class="gt-sec-left">
+      <div class="gt-sec-num">007</div>
+      <h2 class="gt-sec-title">How You Ask Changes What You Pay</h2>
+      <p class="gt-sec-plain">Open bidding (vendors see each other's numbers) produces different results than sealed bidding (everyone bids blind) or direct negotiation. On your actual sequences, the structure of the bid process can move your season total significantly.</p>
+      <span class="gt-sec-tag">Auction Comparison</span>
+    </div>
+    <div class="gt-sec-right" id="s007-body">
+      <div class="gt-loader"><div class="gt-spinner"></div>Comparing bid structures…</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<div class="gt-footer">
+  <a href="/dashboard"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+  <span>VFX Budget System · Game Theory Engine · Model-based estimates for planning purposes</span>
+  <a href="/settings"><i class="bi bi-gear me-1"></i>Settings</a>
+</div>
 
 <script>
-const fmt = v => v == null ? '—' : '$' + Math.round(v).toLocaleString();
-const pct  = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+/* ── Helpers ── */
+const fmt = n => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return '$' + (n / 1_000_000).toFixed(1) + 'M';
+  if (abs >= 1_000)     return '$' + Math.round(n / 1_000) + 'K';
+  return '$' + Math.round(n).toLocaleString();
+};
 
-function badgeAggression(lbl){
-  const cls = lbl==='AGGRESSIVE'?'gt-badge-agg':lbl==='COMPETITIVE'?'gt-badge-comp':'gt-badge-pass';
-  return `<span class="gt-badge ${cls}">${lbl}</span>`;
-}
-function badgeLabel(lbl, map){
-  return `<span class="gt-badge ${map[lbl]||'gt-badge-sup'}">${lbl}</span>`;
-}
-function defColor(p){
-  if(p>=0.55) return '#f05050';
-  if(p>=0.30) return '#f0b429';
-  return '#52c46a';
-}
+const pct = n => (n === null || n === undefined) ? '—' : (n * 100).toFixed(0) + '%';
 
-// ── Populate EP filter ─────────────────────────────────────────────────────
-async function loadEps(){
-  try {
-    const r = await fetch('/api/ep_forecast');
-    const rows = await r.json();
-    const sel = document.getElementById('ep-filter');
-    rows.forEach(row => {
-      const opt = document.createElement('option');
-      opt.value = row.ep; opt.textContent = 'EP ' + row.ep;
-      sel.appendChild(opt);
-    });
-  } catch(e){}
-}
-
-// ── Run All ────────────────────────────────────────────────────────────────
-async function runAll(){
-  document.getElementById('run-all-btn').disabled = true;
-  document.getElementById('run-all-btn').innerHTML = '<span class="loading-dots">Running</span>';
-  await Promise.all([runForecast(), runShapley(), runDefection(), runNash()]);
-  document.getElementById('run-all-btn').disabled = false;
-  document.getElementById('run-all-btn').innerHTML = '<i class="bi bi-play-fill me-1"></i>Run All Models';
-}
-
-// ── 1. Budget Forecast ─────────────────────────────────────────────────────
-async function runForecast(){
-  const btn = document.getElementById('forecast-btn');
-  btn.disabled = true; btn.textContent = '…';
-  const ep = document.getElementById('ep-filter').value;
-  try {
-    const r   = await fetch('/api/game_theory/budget_forecast', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(ep ? {ep: parseInt(ep)} : {})
-    });
-    const d = await r.json();
-    renderForecast(d);
-    // Update KPIs
-    document.getElementById('kpi-strip').style.display = '';
-    document.getElementById('kpi-p10').textContent = fmt(d.competitive_total);
-    document.getElementById('kpi-p50').textContent = fmt(d.equilibrium_total);
-    document.getElementById('kpi-p90').textContent = fmt(d.ceiling_total);
-  } catch(e){ console.error(e); }
-  btn.disabled = false; btn.textContent = 'Run';
-}
-
-function renderForecast(d){
-  // EP bars
-  const epKeys = Object.keys(d.ep_breakdown||{}).map(Number).sort((a,b)=>a-b);
-  const maxVal  = Math.max(...epKeys.map(ep=>d.ep_breakdown[ep].ceiling), 1);
-  let barsHtml = '';
-  if(epKeys.length===0){
-    barsHtml = '<div style="font-size:11px;color:#3840a0;">No EP data</div>';
-  } else {
-    epKeys.forEach(ep=>{
-      const row = d.ep_breakdown[ep];
-      const w10 = Math.max((row.competitive/maxVal*100),2).toFixed(1);
-      const w50 = Math.max((row.equilibrium/maxVal*100),2).toFixed(1);
-      const w90 = Math.max((row.ceiling/maxVal*100),2).toFixed(1);
-      barsHtml += `
-        <div class="ep-bar-row">
-          <div class="ep-label">EP ${ep}</div>
-          <div class="ep-bars">
-            <div class="ep-bar-p10" style="width:${w10}%" title="P10 competitive"></div>
-            <div class="ep-bar-p50" style="width:${w50}%" title="P50 Nash equilibrium"></div>
-            <div class="ep-bar-p90" style="width:${w90}%" title="P90 ceiling"></div>
-          </div>
-          <div class="ep-vals">
-            <span style="color:#52c46a">${fmt(row.competitive)}</span>
-            <span style="color:#6870a0;margin:0 4px">|</span>
-            <span style="color:#f0b429">${fmt(row.equilibrium)}</span>
-            <span style="color:#6870a0;margin:0 4px">|</span>
-            <span style="color:#f05050">${fmt(row.ceiling)}</span>
-            <span style="color:#3840a0;margin-left:4px;font-size:9px">(${row.scenes}sc)</span>
-          </div>
-        </div>`;
-    });
-    barsHtml += `<div style="font-size:9px;color:#3840a0;margin-top:6px;">
-      <span style="color:#52c46a">■ P10 Competitive</span>
-      <span style="color:#f0b429;margin-left:10px">■ P50 Nash Eq.</span>
-      <span style="color:#f05050;margin-left:10px">■ P90 Ceiling</span>
-    </div>`;
-  }
-  document.getElementById('ep-bars-container').innerHTML = barsHtml;
-
-  // Vendor aggression
-  const agg = d.vendor_aggression||{};
-  const aggVendors = Object.keys(agg);
-  if(aggVendors.length===0){
-    document.getElementById('aggression-container').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No vendor data</div>';
-    return;
-  }
-  aggVendors.sort((a,b)=>agg[b].win_rate-agg[a].win_rate);
-  let aggHtml = `<table class="gt-table">
-    <thead><tr>
-      <th>Vendor</th><th>Win Rate</th><th>Avg Markup</th><th>Bids</th><th>Strategy</th>
-    </tr></thead><tbody>`;
-  aggVendors.forEach(v=>{
-    const a = agg[v];
-    aggHtml += `<tr>
-      <td style="font-weight:600">${v}</td>
-      <td>${(a.win_rate*100).toFixed(1)}%</td>
-      <td>${(a.avg_markup*100).toFixed(1)}%</td>
-      <td>${a.total_bids}</td>
-      <td>${badgeAggression(a.aggression_label)}</td>
-    </tr>`;
-  });
-  aggHtml += '</tbody></table>';
-  document.getElementById('aggression-container').innerHTML = aggHtml;
-}
-
-// ── 2. Shapley Values ──────────────────────────────────────────────────────
-async function runShapley(){
-  const btn = document.getElementById('shapley-btn');
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    const r = await fetch('/api/game_theory/vendor_shapley');
-    const rows = await r.json();
-    renderShapley(rows);
-  } catch(e){ console.error(e); }
-  btn.disabled = false; btn.textContent = 'Run';
-}
-
-function renderShapley(rows){
-  if(!rows||rows.length===0){
-    document.getElementById('shapley-container').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No bid data available</div>';
-    return;
-  }
-  const maxSv = Math.max(...rows.map(r=>Math.abs(r.shapley_savings)), 1);
-  const labelMap = {CRITICAL:'gt-badge-crit', IMPORTANT:'gt-badge-imp', SUPPORT:'gt-badge-sup'};
-  let html = `<table class="gt-table">
-    <thead><tr>
-      <th>Vendor</th><th>Marginal Savings</th><th>Share</th>
-      <th>Coverage</th><th>Wins</th><th>Role</th>
-    </tr></thead><tbody>`;
-  rows.forEach(r=>{
-    const barW = Math.max((Math.abs(r.shapley_savings)/maxSv*100),1).toFixed(1);
-    html += `<tr>
-      <td style="font-weight:600">${r.vendor}</td>
-      <td>
-        <div style="font-size:10px;color:#f0b429;margin-bottom:3px">${fmt(r.shapley_savings)}</div>
-        <div class="shapley-bar-bg"><div class="shapley-bar-fill" style="width:${barW}%"></div></div>
-      </td>
-      <td>${r.shapley_pct.toFixed(1)}%</td>
-      <td>${r.coverage_pct}%</td>
-      <td>${r.win_count}/${r.bid_count}</td>
-      <td>${badgeLabel(r.label, labelMap)}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  document.getElementById('shapley-container').innerHTML = html;
-}
-
-// ── 3. Defection Risk ──────────────────────────────────────────────────────
-async function runDefection(){
-  const btn = document.getElementById('defect-btn');
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    const r = await fetch('/api/game_theory/defection_risk');
-    const rows = await r.json();
-    renderDefection(rows);
-    // Update KPI
-    document.getElementById('kpi-strip').style.display = '';
-    const high = rows.filter(r=>r.risk_label==='HIGH').length;
-    document.getElementById('kpi-high-risk').textContent = high;
-  } catch(e){ console.error(e); }
-  btn.disabled = false; btn.textContent = 'Run';
-}
-
-function renderDefection(rows){
-  if(!rows||rows.length===0){
-    document.getElementById('defect-container').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No vendor data available</div>';
-    return;
-  }
-  const riskLblMap = {HIGH:'gt-badge-high', MEDIUM:'gt-badge-med', LOW:'gt-badge-low'};
-  let html = `<table class="gt-table">
-    <thead><tr>
-      <th>Vendor</th><th>Defect Prob</th><th>Util</th><th>Payment</th><th>Est. Overrun</th><th>Risk</th>
-    </tr></thead><tbody>`;
-  rows.forEach(r=>{
-    const prob = r.defection_prob;
-    const fillW = (prob*100).toFixed(0);
-    const fillColor = defColor(prob);
-    const utilPct = r.utilization != null ? (r.utilization*100).toFixed(0)+'%' : '—';
-    const payPct  = (r.payment_risk*100).toFixed(0)+'%';
-    html += `<tr>
-      <td>
-        <div style="font-weight:600">${r.vendor}</div>
-        <div style="font-size:9px;color:#3840a0;margin-top:2px">${r.recommendation}</div>
-      </td>
-      <td>
-        <div style="font-size:10px;color:${fillColor};margin-bottom:3px">${(prob*100).toFixed(0)}%</div>
-        <span class="defect-gauge"><div class="defect-fill" style="width:${fillW}%;background:${fillColor}"></div></span>
-      </td>
-      <td style="color:${r.utilization_risk>0.5?'#f05050':r.utilization_risk>0.25?'#f0b429':'#52c46a'}">${utilPct}</td>
-      <td style="color:${r.payment_risk>0.3?'#f05050':r.payment_risk>0.1?'#f0b429':'#52c46a'}">${payPct}</td>
-      <td style="color:#f0b429">${fmt(r.estimated_overrun)}</td>
-      <td>${badgeLabel(r.risk_label, riskLblMap)}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  document.getElementById('defect-container').innerHTML = html;
-}
-
-// ── 4. Nash Allocation ─────────────────────────────────────────────────────
-async function runNash(){
-  const btn = document.getElementById('nash-btn');
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    const r = await fetch('/api/game_theory/nash_allocation');
-    const d = await r.json();
-    renderNash(d);
-    // Update savings KPI
-    document.getElementById('kpi-strip').style.display = '';
-    document.getElementById('kpi-savings').textContent =
-      fmt(d.savings) + ' (' + (d.savings_pct||0).toFixed(1) + '%)';
-  } catch(e){ console.error(e); }
-  btn.disabled = false; btn.textContent = 'Run';
-}
-
-function renderNash(d){
-  const asgn = d.assignments||{};
-  const scenes = Object.keys(asgn);
-
-  // Summary bar
-  const savingsColor = d.savings>0 ? '#52c46a' : d.savings<0 ? '#f05050' : '#7880a0';
-  document.getElementById('nash-summary').innerHTML = `
-    <div class="d-flex gap-4 mb-2">
-      <div><span style="color:#6870a0;font-size:9px">PREV TOTAL</span><br>
-        <span style="color:#c8d0f0">${fmt(d.prev_total)}</span></div>
-      <div><span style="color:#6870a0;font-size:9px">NASH TOTAL</span><br>
-        <span style="color:#f0b429">${fmt(d.nash_total)}</span></div>
-      <div><span style="color:#6870a0;font-size:9px">SAVINGS</span><br>
-        <span style="color:${savingsColor}">${fmt(d.savings)} (${pct(d.savings_pct)})</span></div>
-      <div><span style="color:#6870a0;font-size:9px">CHANGED</span><br>
-        <span style="color:#c8d0f0">${d.changed_scenes}/${d.total_scenes} scenes</span></div>
-      <div><span style="color:#6870a0;font-size:9px">CONVERGED</span><br>
-        <span style="color:${d.converged?'#52c46a':'#f0b429'}">${d.converged?'Yes':'Partial'} (${d.iterations} iter)</span></div>
-    </div>`;
-
-  if(scenes.length===0){
-    document.getElementById('nash-table-container').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No scene data</div>';
-    return;
-  }
-
-  // Show only changed scenes first, then unchanged
-  const changed   = scenes.filter(sc=>asgn[sc].changed);
-  const unchanged = scenes.filter(sc=>!asgn[sc].changed);
-  const display   = [...changed, ...unchanged].slice(0, 80);
-
-  let html = `<div style="font-size:9px;color:#3840a0;margin-bottom:6px;">
-    Showing ${Math.min(display.length,80)} of ${scenes.length} scenes
-    (${changed.length} changed highlighted)
-  </div>
-  <table class="gt-table">
-    <thead><tr>
-      <th>Scene</th><th>Prev Vendor</th><th>Nash Vendor</th>
-      <th>Prev Cost</th><th>Nash Cost</th><th>Δ</th>
-    </tr></thead><tbody>`;
-
-  display.forEach(sc=>{
-    const a = asgn[sc];
-    const delta = a.prev_cost - a.cost;
-    const dColor = delta>0?'#52c46a':delta<0?'#f05050':'#6870a0';
-    const rowStyle = a.changed ? 'background:#0a0e18;' : '';
-    html += `<tr style="${rowStyle}">
-      <td style="font-size:10px;color:#7880a0">${sc}</td>
-      <td style="${a.changed?'text-decoration:line-through;color:#3840a0':''}">${a.prev_vendor||'—'}</td>
-      <td style="color:${a.changed?'#f0b429':'#c8d0f0'};font-weight:${a.changed?'600':'400'}">${a.vendor}</td>
-      <td style="color:#7880a0">${fmt(a.prev_cost)}</td>
-      <td style="color:#c8d0f0">${fmt(a.cost)}</td>
-      <td style="color:${dColor}">${delta===0?'—':fmt(Math.abs(delta))}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  document.getElementById('nash-table-container').innerHTML = html;
-}
-
-// ── 5. Repeated Game Memory ────────────────────────────────────────────────
-async function runMemory(){
-  const btn = document.getElementById('memory-btn');
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    const r = await fetch('/api/game_theory/repeated_memory?with_defection=1');
-    const d = await r.json();
-    renderMemory(d);
-    document.getElementById('kpi-strip').style.display = '';
-    const chronic = (d.results||[]).filter(r=>r.memory_label==='CHRONIC').length;
-    document.getElementById('kpi-chronic').textContent = chronic;
-    document.getElementById('kpi-seasons-scanned').textContent =
-      (d.projects_scanned||0) + ' seasons';
-  } catch(e){ console.error(e); }
-  btn.disabled = false; btn.textContent = 'Run';
-}
-
-function renderMemory(d){
-  const rows = d.results || [];
-  const scanned = d.projects_scanned || 0;
-  const withMem = d.vendors_with_memory || 0;
-
-  const memLblMap = {CHRONIC:'gt-badge-crit', MODERATE:'gt-badge-med',
-                     CLEAN:'gt-badge-low', 'NO DATA':'gt-badge-sup'};
-
-  let html = `<div style="font-size:9px;color:#3840a0;margin-bottom:8px;">
-    Scanned <strong style="color:#7880a0">${scanned}</strong> historical season(s) ·
-    <strong style="color:#7880a0">${withMem}</strong> vendor(s) with cross-season memory
-  </div>`;
-
-  if(rows.length===0){
-    html += '<div style="font-size:11px;color:#3840a0;">No vendor data — run other season projects first.</div>';
-    document.getElementById('memory-container').innerHTML = html;
-    return;
-  }
-
-  html += `<table class="gt-table">
-    <thead><tr>
-      <th>Vendor</th><th>Defect Prob (w/ Memory)</th>
-      <th>Avg Overrun</th><th>Seasons</th><th>Memory Risk</th><th>History</th>
-    </tr></thead><tbody>`;
-
-  rows.forEach(r=>{
-    const prob = r.defection_prob;
-    const fillColor = defColor(prob);
-    const fillW = (prob*100).toFixed(0);
-    const memLabel = r.memory_label || 'NO DATA';
-    const overrunPct = r.avg_overrun != null
-      ? (r.avg_overrun > 0 ? '+' : '') + (r.avg_overrun*100).toFixed(1) + '%'
-      : '—';
-    const overrunColor = r.avg_overrun > 0.05 ? '#f05050' : r.avg_overrun > 0 ? '#f0b429' : '#52c46a';
-    const memR = r.memory_risk != null ? (r.memory_risk*100).toFixed(0)+'%' : '—';
-
-    html += `<tr>
-      <td>
-        <div style="font-weight:600">${r.vendor}</div>
-        <div style="font-size:9px;color:#3840a0">${r.recommendation||''}</div>
-      </td>
-      <td>
-        <div style="font-size:10px;color:${fillColor};margin-bottom:3px">${(prob*100).toFixed(0)}%</div>
-        <span class="defect-gauge"><div class="defect-fill" style="width:${fillW}%;background:${fillColor}"></div></span>
-      </td>
-      <td style="color:${overrunColor}">${overrunPct}</td>
-      <td>${r.seasons_seen||0}</td>
-      <td>${memR}</td>
-      <td>${badgeLabel(memLabel, memLblMap)}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  document.getElementById('memory-container').innerHTML = html;
-}
-
-// ── 6. Coalition Blocking ──────────────────────────────────────────────────
-async function runCoalition(){
-  const btn = document.getElementById('coalition-btn');
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    const threshold = parseFloat(document.getElementById('cap-threshold').value) || 0.70;
-    const r = await fetch(`/api/game_theory/coalition_blocking?capacity_threshold=${threshold}`);
-    const rows = await r.json();
-    renderCoalition(rows);
-    document.getElementById('kpi-strip').style.display = '';
-    const critCount = rows.filter(r=>r.severity==='CRITICAL'||r.severity==='HIGH').length;
-    document.getElementById('kpi-coalition').textContent = critCount + ' pair(s)';
-  } catch(e){ console.error(e); }
-  btn.disabled = false; btn.textContent = 'Run';
-}
-
-function renderCoalition(rows){
-  if(!rows||rows.length===0){
-    document.getElementById('coalition-container').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No blocking risks detected — vendors have adequate fallback coverage.</div>';
-    return;
-  }
-  const sevMap = {CRITICAL:'gt-badge-crit', HIGH:'gt-badge-high',
-                  MEDIUM:'gt-badge-med', LOW:'gt-badge-low'};
-  let html = `<table class="gt-table">
-    <thead><tr>
-      <th>Vendor Pair</th><th>Combined Shapley</th><th>Exclusive Scenes</th>
-      <th>Cost if Blocked</th><th>Δ Cost</th><th>Util A / B</th><th>Severity</th>
-    </tr></thead><tbody>`;
-
-  rows.forEach(r=>{
-    const [v1,v2] = r.vendors;
-    const u1 = r.utilisation[v1] != null ? (r.utilisation[v1]*100).toFixed(0)+'%' : '—';
-    const u2 = r.utilisation[v2] != null ? (r.utilisation[v2]*100).toFixed(0)+'%' : '—';
-    const riskColor = r.both_at_risk ? '#f05050' : '#f0b429';
-    const deltaColor = r.cost_increase > 0 ? '#f05050' : '#52c46a';
-    html += `<tr>
-      <td>
-        <div style="font-weight:600;color:${riskColor}">${v1}<br>${v2}</div>
-        <div style="font-size:9px;color:#3840a0;margin-top:2px">${r.recommendation}</div>
-      </td>
-      <td style="color:#f0b429">${fmt(r.combined_shapley)}</td>
-      <td style="color:${r.exclusive_scenes>0?'#f05050':'#6870a0'}">${r.exclusive_scenes}</td>
-      <td>${fmt(r.cost_if_blocked)}</td>
-      <td style="color:${deltaColor}">${fmt(r.cost_increase)} (${r.cost_increase_pct>0?'+':''}${r.cost_increase_pct}%)</td>
-      <td style="font-size:10px">
-        <span style="color:${r.utilisation[v1]>=0.7?'#f05050':r.utilisation[v1]>=0.5?'#f0b429':'#52c46a'}">${u1}</span>
-        /
-        <span style="color:${r.utilisation[v2]>=0.7?'#f05050':r.utilisation[v2]>=0.5?'#f0b429':'#52c46a'}">${u2}</span>
-      </td>
-      <td>${badgeLabel(r.severity, sevMap)}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  document.getElementById('coalition-container').innerHTML = html;
-}
-
-// ── 7. Auction Comparison ──────────────────────────────────────────────────
-async function runAuctionComp(){
-  const btn = document.getElementById('auction-btn');
-  btn.disabled = true; btn.textContent = '…';
-  const ep = document.getElementById('ep-filter').value;
-  try {
-    const r = await fetch('/api/game_theory/auction_comparison', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(ep ? {ep: parseInt(ep)} : {})
-    });
-    const d = await r.json();
-    renderAuctionComp(d);
-  } catch(e){ console.error(e); }
-  btn.disabled = false; btn.textContent = 'Run';
-}
-
-function renderAuctionComp(d){
-  const delta = d.fpa_vs_spa_delta || 0;
-  const deltaColor = delta > 0 ? '#f05050' : '#52c46a';
-  const deltaSign  = delta > 0 ? 'COSTLIER' : 'CHEAPER';
-
-  document.getElementById('auction-kpi').innerHTML = `
-    <div class="d-flex gap-4 flex-wrap mb-3">
-      <div class="kpi-card flex-fill">
-        <div class="kpi-val" style="font-size:16px">${fmt(d.fpa_total)}</div>
-        <div class="kpi-lbl">First-Price (FPA)</div>
-        <div class="kpi-sub">Current process</div>
-      </div>
-      <div class="kpi-card flex-fill">
-        <div class="kpi-val" style="font-size:16px;color:${deltaColor}">${fmt(d.spa_total)}</div>
-        <div class="kpi-lbl">Vickrey / Second-Price</div>
-        <div class="kpi-sub">${deltaSign} by ${fmt(Math.abs(delta))}</div>
-      </div>
-      <div class="kpi-card flex-fill">
-        <div class="kpi-val" style="font-size:16px;color:#f05050">${fmt(d.negotiated_total)}</div>
-        <div class="kpi-lbl">Negotiated (No Competition)</div>
-        <div class="kpi-sub">+${fmt(d.fpa_vs_neg_delta)} vs FPA</div>
-      </div>
-    </div>
-    <div style="background:#080a14;border:1px solid #1e2240;border-radius:4px;
-                padding:10px 14px;font-size:11px;color:#9098c0;line-height:1.6;">
-      <i class="bi bi-lightbulb me-2" style="color:#f0b429"></i>${d.insight||''}
-    </div>`;
-
-  // EP bars
-  const epKeys = Object.keys(d.ep_breakdown||{}).map(Number).sort((a,b)=>a-b);
-  if(epKeys.length>0){
-    const maxV = Math.max(...epKeys.map(ep=>d.ep_breakdown[ep].negotiated),1);
-    let barHtml = '<div style="margin-top:14px;margin-bottom:6px;font-size:9px;color:#3840a0;letter-spacing:.4px;text-transform:uppercase;">EP Breakdown</div>';
-    epKeys.forEach(ep=>{
-      const row = d.ep_breakdown[ep];
-      const wF = (row.fpa/maxV*100).toFixed(1);
-      const wS = (row.spa/maxV*100).toFixed(1);
-      const wN = (row.negotiated/maxV*100).toFixed(1);
-      barHtml += `<div class="ep-bar-row">
-        <div class="ep-label">EP ${ep}</div>
-        <div class="ep-bars">
-          <div style="background:#1a3a28;height:14px;border-radius:2px;min-width:2px;width:${wF}%" title="FPA"></div>
-          <div style="background:${delta>0?'#401010':'#102820'};height:14px;border-radius:2px;min-width:2px;width:${wS}%" title="SPA"></div>
-          <div style="background:#402010;height:14px;border-radius:2px;min-width:2px;width:${wN}%" title="Negotiated"></div>
-        </div>
-        <div class="ep-vals">
-          <span style="color:#52c46a">${fmt(row.fpa)}</span>
-          <span style="color:#6870a0;margin:0 3px">|</span>
-          <span style="color:${deltaColor}">${fmt(row.spa)}</span>
-          <span style="color:#6870a0;margin:0 3px">|</span>
-          <span style="color:#f05050">${fmt(row.negotiated)}</span>
-        </div>
-      </div>`;
-    });
-    barHtml += `<div style="font-size:9px;color:#3840a0;margin-top:4px;">
-      <span style="color:#52c46a">■ FPA</span>
-      <span style="color:${deltaColor};margin-left:10px">■ Vickrey</span>
-      <span style="color:#f05050;margin-left:10px">■ Negotiated</span>
-    </div>`;
-    document.getElementById('auction-kpi').innerHTML += barHtml;
-  }
-
-  // Scene table — scenes where auction type matters most
-  const scenes = (d.scenes||[]).slice().sort((a,b)=>Math.abs(b.spa_delta)-Math.abs(a.spa_delta)).slice(0,40);
-  if(scenes.length===0) return;
-  let tbl = `<div style="font-size:9px;color:#3840a0;margin:12px 0 6px;">Top scenes by FPA vs SPA spread</div>
-    <table class="gt-table">
-    <thead><tr>
-      <th>Scene</th><th>EP</th><th>Vendors</th><th>FPA Price</th>
-      <th>SPA Price</th><th>Δ SPA</th><th>Negotiated</th>
-    </tr></thead><tbody>`;
-  scenes.forEach(s=>{
-    const dC = s.spa_delta>0?'#f05050':s.spa_delta<0?'#52c46a':'#6870a0';
-    tbl += `<tr>
-      <td style="color:#7880a0">${s.sc}</td>
-      <td>${s.ep}</td>
-      <td style="color:#6870a0">${s.n_vendors}</td>
-      <td>${fmt(s.fpa_price)}</td>
-      <td style="color:${dC}">${fmt(s.spa_price)}</td>
-      <td style="color:${dC}">${s.spa_delta>0?'+':''}${fmt(s.spa_delta)} (${s.spa_delta_pct>0?'+':''}${s.spa_delta_pct}%)</td>
-      <td style="color:#7880a0">${fmt(s.neg_price)}</td>
-    </tr>`;
-  });
-  tbl += '</tbody></table>';
-  document.getElementById('auction-kpi').innerHTML += tbl;
-}
-
-// ── Run All (updated) ──────────────────────────────────────────────────────
-async function runAll(){
-  document.getElementById('run-all-btn').disabled = true;
-  document.getElementById('run-all-btn').innerHTML = '<span class="loading-dots">Running</span>';
-  await Promise.all([
-    runForecast(), runShapley(), runDefection(), runNash(),
-    runMemory(), runCoalition(), runAuctionComp()
-  ]);
-  document.getElementById('run-all-btn').disabled = false;
-  document.getElementById('run-all-btn').innerHTML = '<i class="bi bi-play-fill me-1"></i>Run All Models';
-}
-
-// ── Monte Carlo helpers ────────────────────────────────────────────────────
-function showMcTab(name){
-  ['budget','defection','frontier'].forEach(t=>{
-    document.getElementById('mc-panel-'+t).style.display = t===name?'':'none';
-    document.getElementById('mctab-'+t).classList.toggle('active', t===name);
-  });
-}
-
-function mcParams(){
-  return {
-    n_simulations: parseInt(document.getElementById('mc-n-sim').value)||5000,
-    correlated:    document.getElementById('mc-correlated').checked,
-    ep: document.getElementById('ep-filter').value
-        ? parseInt(document.getElementById('ep-filter').value) : null,
+const badge = risk => {
+  const r = (risk || '').toUpperCase();
+  const map = {
+    LOW:'ed-badge-low', SAFE:'ed-badge-low',
+    MED:'ed-badge-med', MEDIUM:'ed-badge-med', MODERATE:'ed-badge-med',
+    HIGH:'ed-badge-high',
+    CRIT:'ed-badge-crit', CRITICAL:'ed-badge-crit',
   };
-}
+  const labels = {
+    LOW:'Low', SAFE:'Low', MED:'Medium', MEDIUM:'Medium', MODERATE:'Medium',
+    HIGH:'High', CRIT:'Critical', CRITICAL:'Critical',
+  };
+  return `<span class="ed-badge ${map[r] || 'ed-badge-med'}">${labels[r] || risk}</span>`;
+};
 
-function renderMcKpis(budget, defect){
-  const probOv = budget ? (budget.prob_overrun*100).toFixed(1)+'%' : '—';
-  const probOvColor = budget && budget.prob_overrun>0.3?'#f05050':budget&&budget.prob_overrun>0.1?'#f0b429':'#52c46a';
-  const meanBudget = budget ? fmt(budget.mean) : '—';
-  const var95 = budget ? fmt(budget.var_95) : '—';
-  const defectMean = defect ? fmt(defect.total.mean) : '—';
-  const cvar = budget ? fmt(budget.cvar_95) : '—';
-  document.getElementById('mc-kpi-row').innerHTML = `
-    <div class="kpi-card"><div class="kpi-val" style="font-size:16px">${meanBudget}</div>
-      <div class="kpi-lbl">MC Mean Budget</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="font-size:16px">${var95}</div>
-      <div class="kpi-lbl">VaR (95%)</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="font-size:16px">${cvar}</div>
-      <div class="kpi-lbl">CVaR / Exp. Shortfall</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="font-size:16px;color:${probOvColor}">${probOv}</div>
-      <div class="kpi-lbl">P(Budget Overrun)</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="font-size:16px;color:#f0b429">${defectMean}</div>
-      <div class="kpi-lbl">MC Mean Overrun</div></div>`;
-  document.getElementById('mc-kpi-row').style.display = 'flex';
-}
+const strategyNote = s => ({
+  PASSIVE:     'Staying in lane — low overrun risk',
+  AGGRESSIVE:  'Bidding heavy — watch for renegotiation',
+  COMPETITIVE: 'In the mix — moderate risk',
+  IMPOSING:    'Dominant position — leverage risk',
+}[(s || '').toUpperCase()] || s || '');
 
-// ── Budget MC ──────────────────────────────────────────────────────────────
-async function runMcBudget(){
-  const btn = document.getElementById('mc-budget-btn');
-  btn.disabled=true; btn.textContent='…';
-  showMcTab('budget');
+const empty = msg => `<div class="gt-empty"><strong>${msg}</strong></div>`;
+const loader = msg => `<div class="gt-loader"><div class="gt-spinner"></div>${msg}</div>`;
+
+/* ── 001 — Budget Range ── */
+async function loadBudget() {
+  const btn = document.getElementById('budget-btn');
+  btn.disabled = true;
+  btn.classList.add('running');
+  document.getElementById('budget-icon').style.display = 'none';
+  document.getElementById('budget-label').textContent = 'Running…';
+
   try {
-    const p = mcParams();
-    const r = await fetch('/api/game_theory/mc/budget',{
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)
+    const [fRes, mcRes] = await Promise.all([
+      fetch('/api/game_theory/budget_forecast', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: '{}'
+      }),
+      fetch('/api/game_theory/mc/budget', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ n_simulations: 5000, correlated: true })
+      }),
+    ]);
+    const f  = await fRes.json();
+    const mc = await mcRes.json();
+
+    const p10 = mc.p10  || f.p10_total  || null;
+    const p50 = mc.p50  || f.p50_total  || null;
+    const p90 = mc.p90  || f.p90_total  || null;
+
+    document.getElementById('kpi-p10').textContent = fmt(p10);
+    document.getElementById('kpi-p50').textContent = fmt(p50);
+    document.getElementById('kpi-p90').textContent = fmt(p90);
+
+    if (mc.histogram && mc.histogram.length) {
+      const hw = document.getElementById('hist-wrap');
+      hw.style.display = 'flex';
+      const max = Math.max(...mc.histogram);
+      hw.innerHTML = mc.histogram
+        .map(v => `<div class="gt-hist-bar" style="height:${max > 0 ? (v / max * 100).toFixed(0) : 0}%"></div>`)
+        .join('');
+    }
+
+    if (mc.prob_overrun !== undefined) {
+      const oc = document.getElementById('overrun-callout');
+      oc.style.display = 'block';
+      oc.className = 'gt-callout';
+      oc.innerHTML = `<strong>Overrun probability: ${(mc.prob_overrun * 100).toFixed(0)}%</strong> —
+        the chance the season lands above the Most Likely figure, based on 5,000 simulations.`;
+    }
+  } catch(e) {
+    ['kpi-p10','kpi-p50','kpi-p90'].forEach(id => {
+      document.getElementById(id).textContent = 'No data';
     });
-    const d = await r.json();
-    renderMcBudget(d);
-    renderMcKpis(d, null);
-    document.getElementById('kpi-strip').style.display='';
-  } catch(e){ console.error(e); }
-  btn.disabled=false; btn.textContent='Budget';
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('running');
+  document.getElementById('budget-icon').style.display = '';
+  document.getElementById('budget-label').textContent = 'Re-run';
 }
 
-function renderMcBudget(d){
-  if(!d||!d.histogram||d.scenes_modelled===0){
-    document.getElementById('mc-budget-content').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No bid data to simulate.</div>';
-    return;
-  }
-
-  const cur = d.current_budget;
-  const cushionColor = d.budget_cushion>=0?'#52c46a':'#f05050';
-  const probColor = d.prob_overrun>0.3?'#f05050':d.prob_overrun>0.1?'#f0b429':'#52c46a';
-  const corrLabel = d.correlated ? '✓ Correlated (Cholesky)' : '⊘ Independent';
-
-  let html = `
-  <!-- Risk metrics strip -->
-  <div class="d-flex gap-3 flex-wrap mb-3" style="font-size:11px;">
-    <div><span style="color:#6870a0">Simulations</span><br><b style="color:#c8d0f0">${d.n_simulations.toLocaleString()}</b></div>
-    <div><span style="color:#6870a0">Sampling</span><br><b style="color:#7880a0">${corrLabel}</b></div>
-    <div><span style="color:#6870a0">Scenes</span><br><b style="color:#c8d0f0">${d.scenes_modelled}</b></div>
-    <div><span style="color:#6870a0">Current Budget</span><br><b style="color:#c8d0f0">${fmt(cur)}</b></div>
-    <div><span style="color:#6870a0">MC Mean</span><br><b style="color:#f0b429">${fmt(d.mean)}</b></div>
-    <div><span style="color:#6870a0">Std Dev</span><br><b style="color:#c8d0f0">${fmt(d.std)}</b></div>
-    <div><span style="color:#6870a0">Skewness</span><br><b style="color:${d.skewness>0.5?'#f05050':d.skewness>0?'#f0b429':'#52c46a'}">${d.skewness.toFixed(2)}</b></div>
-    <div><span style="color:#6870a0">Budget Cushion</span><br><b style="color:${cushionColor}">${fmt(d.budget_cushion)}</b></div>
-    <div><span style="color:#6870a0">P(Overrun)</span><br><b style="color:${probColor}">${(d.prob_overrun*100).toFixed(1)}%</b></div>
-  </div>
-
-  <!-- Percentile table + VaR -->
-  <div class="row g-2 mb-3">
-    <div class="col-auto">
-      <table class="gt-table" style="font-size:11px;width:auto;">
-        <thead><tr><th>Pct</th><th>Budget</th><th>vs Current</th></tr></thead>
-        <tbody>`;
-
-  [5,10,25,50,75,90,95].forEach(q=>{
-    const v = d['p'+q];
-    const delta = v - cur;
-    const dc = delta>0?'#f05050':delta<0?'#52c46a':'#6870a0';
-    const isVar = q===95;
-    html += `<tr ${isVar?'style="background:#120a0a"':''}>
-      <td style="color:#6870a0">P${q}${isVar?' <span style="color:#f05050;font-size:9px">VaR</span>':''}</td>
-      <td style="color:${isVar?'#f05050':'#c8d0f0'}">${fmt(v)}</td>
-      <td style="color:${dc}">${delta>0?'+':''}${fmt(Math.abs(delta))}</td>
-    </tr>`;
-  });
-
-  const cvarDelta = d.cvar_95 - cur;
-  html += `<tr style="background:#160a0a">
-    <td style="color:#f05050;font-size:9px">CVaR</td>
-    <td style="color:#f05050">${fmt(d.cvar_95)}</td>
-    <td style="color:#f05050">${cvarDelta>0?'+':''}${fmt(Math.abs(cvarDelta))}</td>
-  </tr>`;
-  html += `</tbody></table></div>
-
-    <!-- Histogram -->
-    <div class="col">
-      <div style="font-size:9px;color:#3840a0;margin-bottom:6px;letter-spacing:.4px;">
-        BUDGET DISTRIBUTION  ·  ${d.n_simulations.toLocaleString()} trials
-        ${d.correlated?'· <span style="color:#5060a0">correlated</span>':''}
-      </div>`;
-
-  const maxCount = Math.max(...d.histogram.map(b=>b.count), 1);
-  const varVal = d.var_95;
-  d.histogram.forEach(b=>{
-    const w = (b.count/maxCount*100).toFixed(1);
-    const isRisk = b.lo >= varVal;
-    const barColor = isRisk?'#402020':b.lo>=d.mean?'#2a2010':'#0f2818';
-    const borderColor = isRisk?'#f05050':b.lo>=d.mean?'#f0b429':'#52c46a';
-    html += `<div class="mc-hist-bar-row">
-      <div class="mc-hist-label">${fmt(b.mid)}</div>
-      <div class="mc-hist-bar-bg">
-        <div class="mc-hist-bar-fill" style="width:${w}%;background:${barColor};border-left:2px solid ${borderColor};"></div>
-      </div>
-      <div class="mc-hist-count">${b.count}</div>
-    </div>`;
-  });
-
-  html += `<div style="font-size:9px;color:#3840a0;margin-top:4px;">
-    <span style="color:#52c46a">■ below mean</span>
-    <span style="color:#f0b429;margin-left:8px">■ above mean</span>
-    <span style="color:#f05050;margin-left:8px">■ above VaR(95%)</span>
-    <span style="margin-left:8px">▲ current budget = ${fmt(cur)}</span>
-  </div>`;
-  html += `</div></div>`; // close col + row
-
-  // By-vendor cost share
-  const vendors = Object.keys(d.by_vendor||{});
-  if(vendors.length>0){
-    html += `<div style="margin-top:10px;font-size:9px;color:#3840a0;margin-bottom:6px;letter-spacing:.4px;">
-      VENDOR COST SHARE (SIMULATION AVERAGE)</div>
-      <table class="gt-table"><thead><tr>
-        <th>Vendor</th><th>Mean Cost</th><th>Std Dev</th><th>Share</th><th>Wins</th>
-      </tr></thead><tbody>`;
-    vendors.sort((a,b)=>(d.by_vendor[b].share_pct||0)-(d.by_vendor[a].share_pct||0));
-    vendors.forEach(v=>{
-      const vd = d.by_vendor[v];
-      html += `<tr>
-        <td style="font-weight:600">${v}</td>
-        <td>${fmt(vd.mean_cost)}</td>
-        <td style="color:#7880a0">${fmt(vd.std_cost)}</td>
-        <td><div style="display:flex;align-items:center;gap:5px;">
-          <div style="background:#0d0f1c;border-radius:2px;height:6px;width:80px;overflow:hidden;">
-            <div style="background:#f0b429;height:6px;width:${Math.min(vd.share_pct,100).toFixed(0)}%"></div>
-          </div>
-          ${vd.share_pct.toFixed(1)}%
-        </div></td>
-        <td style="color:#6870a0">${vd.win_count}</td>
-      </tr>`;
-    });
-    html += '</tbody></table>';
-  }
-
-  // Correlation heatmap (if correlated mode)
-  if(d.correlated && d.correlation_matrix && d.vendor_list.length>=2){
-    const vl = d.vendor_list;
-    const cm = d.correlation_matrix;
-    html += `<div style="margin-top:14px;font-size:9px;color:#3840a0;margin-bottom:6px;letter-spacing:.4px;">
-      VENDOR BID CORRELATION MATRIX</div>
-      <table class="gt-table" style="font-size:9px;">
-      <thead><tr><th></th>${vl.map(v=>`<th style="max-width:60px;overflow:hidden">${v.substring(0,8)}</th>`).join('')}</tr></thead>
-      <tbody>`;
-    vl.forEach((v,i)=>{
-      html += `<tr><td style="font-weight:600;color:#7880a0">${v.substring(0,10)}</td>`;
-      vl.forEach((u,j)=>{
-        const c = cm[i][j];
-        const bg = c>=0.7?'#101e10':c>=0.4?'#1a1a08':c<=-0.4?'#1e0808':c===1?'#1a1d35':'#080a14';
-        const col = c>=0.7?'#52c46a':c>=0.4?'#c8b030':c<=-0.4?'#c04040':c===1?'#f0b429':'#3840a0';
-        html += `<td style="background:${bg};color:${col};text-align:center">${c.toFixed(2)}</td>`;
-      });
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-  }
-
-  document.getElementById('mc-budget-content').innerHTML = html;
-}
-
-// ── Defection MC ───────────────────────────────────────────────────────────
-async function runMcDefection(){
-  const btn = document.getElementById('mc-defect-btn');
-  btn.disabled=true; btn.textContent='…';
-  showMcTab('defection');
+/* ── 002 — Shapley / Who Saves Money ── */
+async function loadShapley() {
+  const el = document.getElementById('s002-body');
   try {
-    const p = {n_simulations: parseInt(document.getElementById('mc-n-sim').value)||5000};
-    const r = await fetch('/api/game_theory/mc/defection',{
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)
-    });
-    const d = await r.json();
-    renderMcDefection(d);
-    renderMcKpis(null, d);
-  } catch(e){ console.error(e); }
-  btn.disabled=false; btn.textContent='Defection';
+    const res  = await fetch('/api/game_theory/vendor_shapley');
+    const data = await res.json();
+    if (!data.length) {
+      el.innerHTML = empty('No vendor bid data yet — add bids in Bid Compare to see who is saving you money.');
+      return;
+    }
+    const max = Math.max(...data.map(v => Math.abs(v.shapley_value || 0)));
+    el.innerHTML = `<table class="gt-table">
+      <thead><tr>
+        <th>Vendor</th>
+        <th>Contribution to Savings</th>
+        <th>Scenes</th>
+        <th>Avg Bid / Shot</th>
+      </tr></thead>
+      <tbody>${data.slice(0, 12).map(v => {
+        const val  = v.shapley_value || 0;
+        const barW = max > 0 ? (Math.abs(val) / max * 100).toFixed(0) : 0;
+        const cls  = val > 0 ? 'bar-lo' : 'bar-hi';
+        return `<tr>
+          <td><strong>${v.vendor}</strong></td>
+          <td>
+            <div class="gt-bar-wrap">
+              <div class="gt-bar-track">
+                <div class="gt-bar-fill ${cls}" style="width:${barW}%"></div>
+              </div>
+              <span class="gt-bar-pct">${fmt(val)}</span>
+            </div>
+          </td>
+          <td>${v.scene_count ?? '—'}</td>
+          <td>${fmt(v.avg_bid)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML = empty('Could not load — open a project with bid data.');
+  }
 }
 
-function renderMcDefection(d){
-  if(!d||!d.per_vendor){
-    document.getElementById('mc-defect-content').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No defection data.</div>';
-    return;
+/* ── 003 — Defection / Who Might Bail ── */
+async function loadDefection() {
+  const el = document.getElementById('s003-body');
+  try {
+    const res  = await fetch('/api/game_theory/defection_risk');
+    const data = await res.json();
+    if (!data.length) {
+      el.innerHTML = empty('No vendor data yet — add vendors in Vendor Tracker to see reliability scores.');
+      return;
+    }
+    el.innerHTML = `<table class="gt-table">
+      <thead><tr>
+        <th>Vendor</th>
+        <th>Risk Level</th>
+        <th>What This Means</th>
+        <th>Bail Probability</th>
+      </tr></thead>
+      <tbody>${data.slice(0, 12).map(v => `<tr>
+        <td><strong>${v.vendor}</strong></td>
+        <td>${badge(v.risk_level)}</td>
+        <td style="font-size:12px;color:var(--cr-muted)">${strategyNote(v.strategy)}</td>
+        <td>${v.defection_prob !== undefined ? pct(v.defection_prob) : '—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML = empty('Could not load — open a project with vendor data.');
   }
-  const t = d.total;
-  const probAny = (t.prob_any_defection*100).toFixed(1);
-  const probMaj = (t.prob_major_overrun*100).toFixed(1);
-  const probAnyColor = t.prob_any_defection>0.5?'#f05050':t.prob_any_defection>0.2?'#f0b429':'#52c46a';
+}
 
-  let html = `
-  <div class="d-flex gap-3 flex-wrap mb-3" style="font-size:11px;">
-    <div><span style="color:#6870a0">Mean Overrun</span><br><b style="color:#f0b429">${fmt(t.mean)}</b></div>
-    <div><span style="color:#6870a0">P90 Overrun</span><br><b style="color:#f05050">${fmt(t.p90)}</b></div>
-    <div><span style="color:#6870a0">VaR(95%)</span><br><b style="color:#f05050">${fmt(t.var_95)}</b></div>
-    <div><span style="color:#6870a0">CVaR(95%)</span><br><b style="color:#f05050">${fmt(t.cvar_95)}</b></div>
-    <div><span style="color:#6870a0">Worst Case</span><br><b style="color:#f05050">${fmt(t.worst_case)}</b></div>
-    <div><span style="color:#6870a0">P(Any Defect)</span><br><b style="color:${probAnyColor}">${probAny}%</b></div>
-    <div><span style="color:#6870a0">P(>15% Overrun)</span><br><b style="color:${t.prob_major_overrun>0.1?'#f05050':'#f0b429'}">${probMaj}%</b></div>
-  </div>`;
+/* ── 004 — Nash / Stable Assignment ── */
+async function loadNash() {
+  const el = document.getElementById('s004-body');
+  try {
+    const res  = await fetch('/api/game_theory/nash_allocation');
+    const data = await res.json();
+    if (data.error || !data.allocations || !data.allocations.length) {
+      el.innerHTML = empty('No allocation data — add bid data in Bid Compare to calculate the stable assignment.');
+      return;
+    }
+    const savings = (data.current_total || 0) - (data.nash_total || 0);
+    let html = '';
+    if (savings > 0) {
+      html += `<div class="gt-savings"><i class="bi bi-arrow-down-circle me-2"></i>Potential saving vs current assignment: ${fmt(savings)}</div>`;
+    }
+    const rows = data.allocations.slice(0, 14);
+    html += `<table class="gt-table">
+      <thead><tr>
+        <th>Scene</th><th>Optimal Vendor</th><th>Nash Bid</th><th>Currently Assigned</th>
+      </tr></thead>
+      <tbody>${rows.map(a => {
+        const changed = a.vendor && a.current_vendor && a.vendor !== a.current_vendor;
+        return `<tr>
+          <td><strong>SC ${a.scene_code || a.sc || '—'}</strong></td>
+          <td>
+            ${a.vendor || '—'}
+            ${changed ? `<span style="font-size:9px;font-weight:700;color:var(--cr-amber);letter-spacing:.5px;margin-left:6px;text-transform:uppercase">Change</span>` : ''}
+          </td>
+          <td>${fmt(a.nash_cost)}</td>
+          <td style="color:var(--cr-muted)">${a.current_vendor || '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+    if (data.allocations.length > 14) {
+      html += `<p style="font-size:12px;color:var(--cr-muted);margin-top:12px">+ ${data.allocations.length - 14} more scenes not shown</p>`;
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = empty('Could not load — open a project with bid data.');
+  }
+}
 
-  // Overrun histogram
-  if(d.histogram&&d.histogram.length>0){
-    const maxC = Math.max(...d.histogram.map(b=>b.count),1);
-    html += `<div style="font-size:9px;color:#3840a0;margin-bottom:6px;">OVERRUN DISTRIBUTION</div>`;
-    d.histogram.forEach(b=>{
-      if(b.count===0) return;
-      const w = (b.count/maxC*100).toFixed(1);
-      const isHigh = b.lo>=t.var_95;
-      html += `<div class="mc-hist-bar-row">
-        <div class="mc-hist-label">${fmt(b.mid)}</div>
-        <div class="mc-hist-bar-bg">
-          <div class="mc-hist-bar-fill" style="width:${w}%;background:${isHigh?'#301010':'#1a0a0a'};border-left:2px solid ${isHigh?'#f05050':'#803030'};"></div>
+/* ── 005 — Track Record ── */
+async function loadMemory() {
+  const el = document.getElementById('s005-body');
+  try {
+    const res  = await fetch('/api/game_theory/repeated_memory');
+    const data = await res.json();
+    const vendors = data.vendors || [];
+    if (!vendors.length) {
+      el.innerHTML = empty('No cross-show history yet — patterns build as you complete more projects in this system.');
+      return;
+    }
+    el.innerHTML = `<div>${vendors.slice(0, 10).map(v => {
+      const score = v.reputation_score ?? v.score ?? 1.0;
+      const color = score >= 1.0 ? 'var(--cr-green)' : score >= 0.8 ? 'var(--cr-amber)' : 'var(--cr-red)';
+      const label = score >= 1.0 ? 'Clean record' : score >= 0.8 ? 'Minor overruns' : 'Repeated issues';
+      return `<div class="gt-rep-row">
+        <div class="gt-rep-name">${v.vendor}</div>
+        <div>
+          <div style="font-size:10px;color:var(--cr-muted);margin-bottom:2px">${v.seasons_seen ?? 0} show(s) on record</div>
+          <div style="font-size:12px;font-weight:600;color:${color}">${label}</div>
         </div>
-        <div class="mc-hist-count">${b.count}</div>
+        <div class="gt-rep-score" style="color:${color}">${score.toFixed(2)}</div>
       </div>`;
-    });
+    }).join('')}</div>`;
+  } catch(e) {
+    el.innerHTML = empty('Could not load history.');
   }
-
-  // Per-vendor table
-  html += `<div style="margin-top:12px;font-size:9px;color:#3840a0;margin-bottom:6px;">PER-VENDOR OVERRUN BREAKDOWN</div>
-    <table class="gt-table"><thead><tr>
-      <th>Vendor</th><th>Defect Prob</th><th>P(Defects)</th>
-      <th>Mean Overrun</th><th>P90 Overrun</th><th>Shots</th>
-    </tr></thead><tbody>`;
-  d.per_vendor.forEach(v=>{
-    const defColor2 = v.prob_defects>0.4?'#f05050':v.prob_defects>0.2?'#f0b429':'#52c46a';
-    html += `<tr>
-      <td style="font-weight:600">${v.vendor}</td>
-      <td>${(v.defection_prob*100).toFixed(0)}%</td>
-      <td style="color:${defColor2}">${(v.prob_defects*100).toFixed(1)}%</td>
-      <td style="color:#f0b429">${fmt(v.mean_overrun)}</td>
-      <td style="color:#f05050">${fmt(v.p90_overrun)}</td>
-      <td style="color:#6870a0">${v.shots_assigned}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-
-  document.getElementById('mc-defect-content').innerHTML = html;
 }
 
-// ── Frontier MC ────────────────────────────────────────────────────────────
-async function runMcFrontier(){
-  const btn = document.getElementById('mc-frontier-btn');
-  btn.disabled=true; btn.textContent='…';
-  showMcTab('frontier');
+/* ── 006 — Coalition / Double-Booked ── */
+async function loadCoalition() {
+  const el = document.getElementById('s006-body');
   try {
-    const n = Math.min(parseInt(document.getElementById('mc-n-sim').value)||2000, 5000);
-    const r = await fetch('/api/game_theory/mc/frontier',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({n_simulations: n})
-    });
-    const d = await r.json();
-    renderMcFrontier(d);
-  } catch(e){ console.error(e); }
-  btn.disabled=false; btn.textContent='Frontier';
-}
-
-function renderMcFrontier(d){
-  if(!d||!d.all_points||d.all_points.length===0){
-    document.getElementById('mc-frontier-content').innerHTML =
-      '<div style="font-size:11px;color:#3840a0;">No data for frontier.</div>';
-    return;
-  }
-
-  const pts    = d.all_points;
-  const front  = d.frontier;
-  const mc_pt  = d.min_cost_point;
-  const mr_pt  = d.min_risk_point;
-  const base   = d.baseline;
-
-  const allX = pts.map(p=>p.expected_cost);
-  const allY = pts.map(p=>p.risk_std);
-  const minX = Math.min(...allX), maxX = Math.max(...allX);
-  const minY = Math.min(...allY), maxY = Math.max(...allY);
-  const W = 580, H = 280, PAD = 40;
-
-  function sx(v){ return PAD + (v-minX)/(maxX-minX+1)*(W-2*PAD); }
-  function sy(v){ return H-PAD - (v-minY)/(maxY-minY+1)*(H-2*PAD); }
-
-  // SVG scatter plot
-  let svg = `<svg width="${W}" height="${H}" style="background:#060810;border:1px solid #1e2240;border-radius:4px;display:block;margin-bottom:10px;">`;
-
-  // Grid lines
-  for(let i=0;i<=4;i++){
-    const y = PAD + i*(H-2*PAD)/4;
-    svg += `<line x1="${PAD}" y1="${y}" x2="${W-PAD}" y2="${y}" stroke="#0e1020" stroke-width="1"/>`;
-    const v = maxY - i*(maxY-minY)/4;
-    svg += `<text x="${PAD-4}" y="${y+3}" text-anchor="end" fill="#3840a0" font-size="8">${fmt(v)}</text>`;
-  }
-  for(let i=0;i<=4;i++){
-    const x = PAD + i*(W-2*PAD)/4;
-    svg += `<line x1="${x}" y1="${PAD}" x2="${x}" y2="${H-PAD}" stroke="#0e1020" stroke-width="1"/>`;
-    const v = minX + i*(maxX-minX)/4;
-    svg += `<text x="${x}" y="${H-PAD+12}" text-anchor="middle" fill="#3840a0" font-size="8">${fmt(v)}</text>`;
-  }
-  svg += `<text x="${W/2}" y="${H-2}" text-anchor="middle" fill="#3840a0" font-size="9">Expected Cost →</text>`;
-  svg += `<text x="10" y="${H/2}" text-anchor="middle" fill="#3840a0" font-size="9" transform="rotate(-90,10,${H/2})">Risk (Std Dev) →</text>`;
-
-  // All sample points
-  pts.forEach(p=>{
-    svg += `<circle cx="${sx(p.expected_cost).toFixed(1)}" cy="${sy(p.risk_std).toFixed(1)}" r="3" class="frontier-dot" opacity="0.6"/>`;
-  });
-
-  // Efficient frontier line
-  if(front.length>=2){
-    const lineCoords = front.map(p=>`${sx(p.expected_cost).toFixed(1)},${sy(p.risk_std).toFixed(1)}`).join(' ');
-    svg += `<polyline points="${lineCoords}" fill="none" stroke="#f0b429" stroke-width="1.5" stroke-dasharray="4,2"/>`;
-    front.forEach(p=>{
-      svg += `<circle cx="${sx(p.expected_cost).toFixed(1)}" cy="${sy(p.risk_std).toFixed(1)}" r="4" class="frontier-dot-ef"/>`;
-    });
-  }
-
-  // Special points
-  if(base){ svg += `<circle cx="${sx(base.expected_cost).toFixed(1)}" cy="${sy(base.risk_std).toFixed(1)}" r="6" class="frontier-dot-ef" opacity="0.9"/>
-    <text x="${sx(base.expected_cost)+8}" y="${sy(base.risk_std)+4}" fill="#f0b429" font-size="9">Current</text>`; }
-  if(mc_pt){ svg += `<circle cx="${sx(mc_pt.expected_cost).toFixed(1)}" cy="${sy(mc_pt.risk_std).toFixed(1)}" r="5" class="frontier-dot-mc"/>
-    <text x="${sx(mc_pt.expected_cost)+6}" y="${sy(mc_pt.risk_std)+4}" fill="#52c46a" font-size="9">Min Cost</text>`; }
-  if(mr_pt){ svg += `<circle cx="${sx(mr_pt.expected_cost).toFixed(1)}" cy="${sy(mr_pt.risk_std).toFixed(1)}" r="5" class="frontier-dot-mr"/>
-    <text x="${sx(mr_pt.expected_cost)+6}" y="${sy(mr_pt.risk_std)+4}" fill="#f05050" font-size="9">Min Risk</text>`; }
-
-  svg += '</svg>';
-
-  // Summary table
-  let summary = `
-  <div class="row g-3">
-    <div class="col-auto">
-      <table class="gt-table" style="font-size:11px;width:auto;">
-        <thead><tr><th>Policy</th><th>Exp. Cost</th><th>Std Dev (Risk)</th></tr></thead>
-        <tbody>
-          <tr><td style="color:#f0b429">Equal Weight (baseline)</td><td>${fmt(base&&base.expected_cost)}</td><td>${fmt(base&&base.risk_std)}</td></tr>
-          <tr><td style="color:#52c46a">Min Cost</td><td>${fmt(mc_pt&&mc_pt.expected_cost)}</td><td>${fmt(mc_pt&&mc_pt.risk_std)}</td></tr>
-          <tr><td style="color:#f05050">Min Risk</td><td>${fmt(mr_pt&&mr_pt.expected_cost)}</td><td>${fmt(mr_pt&&mr_pt.risk_std)}</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>`;
-
-  // Vendor weights for min-cost and min-risk
-  if(mc_pt&&mc_pt.vendor_weights){
-    const vws = Object.entries(mc_pt.vendor_weights).sort((a,b)=>b[1]-a[1]);
-    summary += `<div style="font-size:9px;color:#3840a0;margin:10px 0 4px;">MIN COST VENDOR WEIGHTS</div>
-      <div class="d-flex gap-3 flex-wrap">`;
-    vws.forEach(([v,w])=>{
-      const wPct = (w*100/Math.max(...Object.values(mc_pt.vendor_weights))*100).toFixed(0);
-      summary += `<div style="font-size:10px;color:#c8d0f0">${v}<br>
-        <div style="background:#0d0f1c;border-radius:2px;height:4px;width:60px;overflow:hidden;margin-top:2px;">
-          <div style="background:#52c46a;height:4px;width:${wPct}%"></div>
-        </div>
-        <span style="color:#6870a0">${w.toFixed(2)}</span>
+    const res  = await fetch('/api/game_theory/coalition_blocking');
+    const data = await res.json();
+    if (!data.length) {
+      el.innerHTML = `<div class="gt-empty" style="text-align:left;padding:24px">
+        <strong style="color:var(--cr-green)">No capacity conflicts detected</strong>
+        Vendor workloads look well-distributed. Set capacity limits in the Vendor Tracker to refine this analysis.
       </div>`;
-    });
-    summary += '</div>';
+      return;
+    }
+    el.innerHTML = `<div>${data.slice(0, 8).map(pair => `
+      <div class="gt-pair">
+        <div class="gt-pair-vendors">
+          ${pair.vendor_a || pair.v1 || '?'}<span>+</span>${pair.vendor_b || pair.v2 || '?'}
+        </div>
+        <div>${badge(pair.risk_level || 'HIGH')}</div>
+        <div class="gt-pair-note">
+          ${pair.combined_load !== undefined ? pct(pair.combined_load) + ' combined load' : ''}
+        </div>
+      </div>`).join('')}</div>`;
+  } catch(e) {
+    el.innerHTML = empty('Could not load coalition data.');
   }
-
-  document.getElementById('mc-frontier-content').innerHTML = svg + summary;
 }
 
-// ── Update runAll to include MC ────────────────────────────────────────────
-async function runAll(){
-  document.getElementById('run-all-btn').disabled = true;
-  document.getElementById('run-all-btn').innerHTML = '<span class="loading-dots">Running</span>';
-  await Promise.all([
-    runForecast(), runShapley(), runDefection(), runNash(),
-    runMemory(), runCoalition(), runAuctionComp(),
-    runMcBudget(), runMcDefection()
-  ]);
-  document.getElementById('run-all-btn').disabled = false;
-  document.getElementById('run-all-btn').innerHTML = '<i class="bi bi-play-fill me-1"></i>Run All Models';
+/* ── 007 — Auction Comparison ── */
+async function loadAuction() {
+  const el = document.getElementById('s007-body');
+  try {
+    const res  = await fetch('/api/game_theory/auction_comparison', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: '{}'
+    });
+    const data = await res.json();
+    if (data.error) {
+      el.innerHTML = empty('No bid data — add bids in Bid Compare to compare bid structures.');
+      return;
+    }
+    const types = [
+      {
+        key: 'first_price',
+        name: 'Open Bidding',
+        desc: 'Vendors can see each other\'s bids and adjust. Typically produces higher prices — everyone anchors to the competition.'
+      },
+      {
+        key: 'vickrey',
+        name: 'Sealed Bid',
+        desc: 'Everyone bids blind. Truth-telling is the rational move — usually produces the fairest market price.'
+      },
+      {
+        key: 'negotiated',
+        name: 'Direct Negotiation',
+        desc: 'One-to-one deals. Outcome depends entirely on your leverage and the vendor\'s alternatives at the time.'
+      },
+    ];
+    const amounts = types
+      .map(t => data[t.key]?.total ?? data[t.key] ?? null)
+      .filter(v => v !== null && v > 0);
+    const min = amounts.length ? Math.min(...amounts) : null;
+
+    el.innerHTML = `<div class="gt-auction-grid">${types.map(t => {
+      const amt  = data[t.key]?.total ?? data[t.key] ?? null;
+      const best = amt !== null && amt === min;
+      return `<div class="gt-auction-card ${best ? 'is-best' : ''}">
+        <div class="gt-auction-type">${t.name}</div>
+        <div class="gt-auction-amount">${amt !== null ? fmt(amt) : '—'}</div>
+        <div class="gt-auction-desc">${t.desc}</div>
+        ${best ? '<span class="gt-best-badge">Lowest Cost</span>' : ''}
+      </div>`;
+    }).join('')}</div>`;
+  } catch(e) {
+    el.innerHTML = empty('Could not load auction comparison.');
+  }
 }
 
-// Init
-loadEps();
+/* ── Boot ── */
+document.addEventListener('DOMContentLoaded', () => {
+  loadShapley();
+  loadDefection();
+  loadNash();
+  loadMemory();
+  loadCoalition();
+  loadAuction();
+});
 </script>
-{% endblock %}
+
+</body>
+</html>
